@@ -130,7 +130,7 @@ export default function HelpModal({ appMode, onClose }: HelpModalProps) {
           )}
         </div>
 
-        <div className="pt-4 border-t border-gray-200 dark:border-white/[0.08] flex justify-center">
+        <div className="pt-4 border-t border-gray-200 dark:border-white/[0.08] flex flex-col items-center justify-center gap-2">
           <a
             href="https://github.com/yangzhen0415"
             target="_blank"
@@ -142,6 +142,9 @@ export default function HelpModal({ appMode, onClose }: HelpModalProps) {
             </svg>
             @yangzhen0415
           </a>
+          <p className="text-center text-xs font-medium text-gray-500 dark:text-gray-400">
+            如需协助联系：Mark_AmazonAi 或 190-404-55029
+          </p>
         </div>
     </Sheet>,
     document.body
