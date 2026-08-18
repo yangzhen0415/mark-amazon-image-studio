@@ -142,8 +142,8 @@ export default function HelpModal({ appMode, onClose }: HelpModalProps) {
             </svg>
             @yangzhen0415
           </a>
-          <p className="text-center text-xs font-medium text-gray-500 dark:text-gray-400">
-            如需协助联系：Mark_AmazonAi 或 190-404-55029
+          <p data-selectable-text className="select-text text-center text-xs font-medium text-gray-500 dark:text-gray-400">
+            如需协助联系：<span className="select-text">Mark_AmazonAi</span> 或 <span className="select-text">190-404-55029</span>
           </p>
         </div>
     </Sheet>,
