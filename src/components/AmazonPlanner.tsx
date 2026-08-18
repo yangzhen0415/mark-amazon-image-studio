@@ -113,6 +113,25 @@ type StylePreviewState = {
 }
 const PLANNER_HISTORY_LIMIT = 30
 
+function parseTransferredListingPayload(raw: string | null): { listing: string; marketplaceId: AmazonMarketplaceId } | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<{ listing: unknown; marketplaceId: unknown }>
+    if (typeof parsed.listing === 'string' && parsed.listing.trim()) {
+      return {
+        listing: parsed.listing,
+        marketplaceId: normalizeAmazonMarketplaceId(parsed.marketplaceId),
+      }
+    }
+  } catch {
+    // Legacy transfer payload was a plain listing string.
+  }
+  return {
+    listing: raw,
+    marketplaceId: DEFAULT_AMAZON_MARKETPLACE_ID,
+  }
+}
+
 type AmazonWorkbenchDraftSnapshot = {
   plannerMode: AmazonPlannerMode
   marketplaceId: AmazonMarketplaceId
@@ -600,7 +619,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     : !hasPlannerInput
       ? {
           target: 'planner-input',
-          message: plannerMode === 'aplus' ? '下一步：粘贴已生成的 Listing 或 A+ 文案' : '下一步：粘贴 Listing 策划页生成的日本站 Listing',
+          message: plannerMode === 'aplus' ? '下一步：粘贴已生成的 Listing 或 A+ 文案' : `下一步：粘贴 Listing 策划页生成的${marketplace.label} Listing`,
         }
       : !hasPlanOptions
         ? {
@@ -792,27 +811,30 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
   ])
 
   useEffect(() => {
-    const transferredListing = sessionStorage.getItem('amazon-jp-listing-transfer')
+    const transferredListing = parseTransferredListingPayload(sessionStorage.getItem('amazon-jp-listing-transfer'))
     if (!transferredListing) return
     sessionStorage.removeItem('amazon-jp-listing-transfer')
     setPlannerMode('listing')
-    setMarketplaceId('jp')
-    setListingText(transferredListing)
-    setListingCopyMarkdown(transferredListing)
+    setMarketplaceId(transferredListing.marketplaceId)
+    setListingText(transferredListing.listing)
+    setListingCopyMarkdown(transferredListing.listing)
     showToast('已接收 Listing，请上传商品角度参考图后点击 AI 策划', 'success')
   }, [showToast])
 
   useEffect(() => {
     const handleTransfer = (event: Event) => {
       const transferredListing = event instanceof CustomEvent && typeof event.detail?.listing === 'string'
-        ? event.detail.listing
-        : sessionStorage.getItem('amazon-jp-listing-transfer')
+        ? {
+            listing: event.detail.listing,
+            marketplaceId: normalizeAmazonMarketplaceId(event.detail.marketplaceId),
+          }
+        : parseTransferredListingPayload(sessionStorage.getItem('amazon-jp-listing-transfer'))
       if (!transferredListing) return
       sessionStorage.removeItem('amazon-jp-listing-transfer')
       setPlannerMode('listing')
-      setMarketplaceId('jp')
-      setListingText(transferredListing)
-      setListingCopyMarkdown(transferredListing)
+      setMarketplaceId(transferredListing.marketplaceId)
+      setListingText(transferredListing.listing)
+      setListingCopyMarkdown(transferredListing.listing)
       showToast('已接收 Listing，请上传商品角度参考图后点击 AI 策划', 'success')
     }
 
@@ -1366,7 +1388,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
       return
     }
     if (!hasPlannerInput) {
-      showToast('请先粘贴 Listing 策划页生成的日本站 Listing', 'error')
+      showToast(`请先粘贴 Listing 策划页生成的${marketplace.label} Listing`, 'error')
       return
     }
 
@@ -2022,14 +2044,14 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
               </div>
             )}
             <label className={`mt-3 block rounded-xl transition ${getGuideFocusClass(guideState.target === 'planner-input')}`}>
-              <span className={LABEL_CLASS}>{plannerMode === 'aplus' ? 'Listing / A+ 文案 / 品牌说明' : '日本站 Listing 文案'}</span>
+              <span className={LABEL_CLASS}>{plannerMode === 'aplus' ? 'Listing / A+ 文案 / 品牌说明' : `${marketplace.label} Listing 文案`}</span>
               <textarea
                 value={listingText}
                 onChange={(event) => setListingText(event.target.value)}
                 className={`${FIELD_CLASS} min-h-[138px] resize-y`}
                 placeholder={plannerMode === 'aplus'
-                  ? '粘贴 Listing 策划页生成的日本站 Listing、品牌说明或 A+ 文案，再点击 AI 策划 A+。'
-                  : '粘贴 Listing 策划页生成的日本站 Listing。\n这里不放阿里参数截图，商品角度参考图请上传到下面的参考图区域。'}
+                  ? `粘贴 Listing 策划页生成的${marketplace.label} Listing、品牌说明或 A+ 文案，再点击 AI 策划 A+。`
+                  : `粘贴 Listing 策划页生成的${marketplace.label} Listing。\n这里不放阿里参数截图，商品角度参考图请上传到下面的参考图区域。`}
               />
             </label>
             <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
@@ -2851,7 +2873,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
             <textarea
               value={plannerMode === 'aplus' && !selectedAPlusPlan
                 ? '请先点击 AI策划A+，再在右侧选择一个 A+ 模块。'
-                : activePlanPreview || '请先粘贴 Listing 策划页生成的日本站 Listing，并上传商品角度参考图，然后点击 AI 策划。这里会生成图片方案、英文 Prompt 和 Negative Prompt。'}
+                : activePlanPreview || `请先粘贴 Listing 策划页生成的${marketplace.label} Listing，并上传商品角度参考图，然后点击 AI 策划。这里会生成图片方案、英文 Prompt 和 Negative Prompt。`}
               className="ios-field h-[430px] w-full resize-none p-3 font-mono text-xs leading-relaxed text-gray-700 dark:text-gray-200"
               spellCheck={false}
               readOnly

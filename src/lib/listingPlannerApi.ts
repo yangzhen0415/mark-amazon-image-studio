@@ -63,26 +63,26 @@ const PRODUCT_REFERENCE_FACTS_ONLY_PLANNER_GUIDE = [
   '- seriesStyleGuide should preserve cross-image product consistency, factual visual continuity, copy hierarchy, and product appearance only; it must not lock the final palette, typography, background, lighting mood, or decorative system because the user-selected preset style controls those during image generation.',
 ].join('\n')
 
-const AMAZON_JP_LISTING_COPY_GUIDE = [
-  'Amazon Japan sourcing seller copywriting rules:',
-  '- The user is a Japan marketplace reseller who usually sources products from Alibaba/1688.',
+const AMAZON_MARKETPLACE_LISTING_COPY_GUIDE = [
+  'Amazon marketplace sourcing seller copywriting rules:',
+  '- The user is an Amazon marketplace reseller who usually sources products from Alibaba/1688 and may sell on Japan, US, or EU marketplaces.',
   '- Treat uploaded product photos and Alibaba parameter screenshots as product evidence. Extract dimensions, material, color, package contents, compatibility, use cases, and visible constraints from them when the planner model can see images.',
-  '- Generate listingCopy for Amazon.co.jp in natural Japanese: the new title pair, exactly 5 bullet points, and product description / A+ only.',
-  '- New title pair means mainTitle75 plus itemHighlights125. Treat these two fields together as the current Amazon Japan title structure, but keep them as two separate returned fields for length control.',
+  '- Generate listingCopy for the selected Amazon marketplace in the target marketplace language: the title pair, exactly 5 bullet points, and product description / A+ only.',
+  '- Title pair means mainTitle75 plus itemHighlights125. Treat these two fields together as the current title structure, but keep them as two separate returned fields for length control.',
   '- mainTitle75 must follow the 2026 Amazon title rule by default: 75 characters or fewer including spaces for non-media products, unless the category backend has a stricter rule.',
-  '- itemHighlights125 must be the 125-character-or-fewer title extension / item highlight line. It should complement the main title instead of repeating it.',
+  '- itemHighlights125 must be the 125-character-or-fewer title extension / item highlight line in the selected marketplace language. It should complement the main title instead of repeating it.',
   '- Default title does not include brand name unless the user explicitly asks to include a brand.',
   '- Use Alibaba parameters conservatively. Do not turn supplier marketing claims into Amazon claims unless supported by visible specifications or user-provided evidence.',
   '- Avoid keyword stuffing. Prioritize compliance, search relevance, mobile readability, conversion, then creative communication.',
   '- Always screen and avoid unsupported risk terms including No.1, 最高, 最強, 完全, 安全保証, 永久, 絶対, 100%, 医師推奨, 抗菌, 防カビ, 無害, FDA承認, 環境に優しい, discount, coupon, ranking, review manipulation, external contact, and unsupported medical, safety, eco, certification, or performance claims.',
   '- If a risky term is useful but unsupported, replace it with a milder verifiable expression directly in the title, bullet points, or description.',
-  '- Bullet points must be exactly 5 Japanese bullet strings. Each bullet should be rich and practical, around 320-380 Japanese characters when product evidence is sufficient. Prefer the format Japanese short heading followed by Japanese body text.',
-  '- Product Description / A+ should be 400-700 Japanese characters in 2-3 paragraphs and may use <b>heading</b><br> format.',
+  '- Bullet points must be exactly 5 strings in the selected marketplace language. Each bullet should be rich and practical, around 320-380 characters when product evidence is sufficient. Prefer the format short local-language heading followed by local-language body text.',
+  '- Product Description / A+ should be 400-700 characters in the selected marketplace language in 2-3 paragraphs and may use <b>heading</b><br> format.',
 ].join('\n')
 
 const IMAGE2_CONTINUOUS_GENERATION_GUIDE = [
   'Image2 continuous generation rules for listing image prompts:',
-  '- Default image group is 7 independent Amazon Japan listing images: main image, strong lifestyle scene, pain point, solution/feature, comparison, detail, size guide/trust.',
+  '- Default image group is independent Amazon listing images for the selected marketplace: main image, strong lifestyle scene, pain point, solution/feature, comparison, detail, size guide/trust.',
   '- Each image prompt must emphasize one image per output when it is intended for Image2.',
   '- Do not create collage, grid, contact sheet, multi-panel layout, combined image, preview sheet, or all images in one canvas.',
   '- Keep the uploaded product appearance identical in every generated image.',
@@ -128,10 +128,10 @@ const LISTING_COPY_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    mainTitle75: { type: 'string', description: 'Natural Japanese Amazon.co.jp main title, 75 characters or fewer including spaces, no brand name unless explicitly requested.' },
-    itemHighlights125: { type: 'string', description: 'Natural Japanese 125-character-or-fewer title extension / Item Highlights line that complements mainTitle75.' },
-    bulletPoints: { type: 'array', minItems: 5, maxItems: 5, items: { type: 'string', description: 'One long Japanese bullet point, about 320-380 characters when product evidence is sufficient.' } },
-    productDescriptionAPlus: { type: 'string', description: 'Natural Japanese Product Description / A+ text, 400-700 Japanese characters, 2-3 HTML-style paragraphs allowed.' },
+    mainTitle75: { type: 'string', description: 'Natural selected-marketplace main title, 75 characters or fewer including spaces, no brand name unless explicitly requested.' },
+    itemHighlights125: { type: 'string', description: 'Natural selected-marketplace-language 125-character-or-fewer title extension / Item Highlights line that complements mainTitle75.' },
+    bulletPoints: { type: 'array', minItems: 5, maxItems: 5, items: { type: 'string', description: 'One long selected-marketplace-language bullet point, about 320-380 characters when product evidence is sufficient.' } },
+    productDescriptionAPlus: { type: 'string', description: 'Natural selected-marketplace-language Product Description / A+ text, 400-700 characters, 2-3 HTML-style paragraphs allowed.' },
   },
   required: [
     'mainTitle75',
@@ -469,7 +469,7 @@ function formatListingCopyMarkdown(payload: PlannerApiPayload): string {
     normalizePlannerText(copy.itemHighlights125),
   ].filter(Boolean).join('\n')
   const sections = [
-    ['# New Title <= 75 + 125 characters', titleBody],
+    ['# Title <= 75 + 125 characters', titleBody],
     ['# Bullet Points x5', bulletPoints.map((item, index) => `${index + 1}. ${item}`).join('\n')],
     ['# Product Description / A+', normalizePlannerText(copy.productDescriptionAPlus)],
   ]
@@ -609,10 +609,11 @@ function buildFieldLanguageRules(marketplaceId?: AmazonMarketplaceId, options: {
 
 function buildListingPlannerInstructions(baseDraft: AmazonPromptDraft, listingImageCount: number, marketplaceId?: AmazonMarketplaceId) {
   const slots = getAmazonListingImageSlots(listingImageCount)
+  const marketplace = getAmazonMarketplace(marketplaceId)
   return [
-    'You are an Amazon Japan listing copywriter and image-planning agent. The user may provide product photos, Alibaba/1688 parameter screenshots, supplier text, rough keywords, or existing listing copy.',
+    'You are an Amazon marketplace listing copywriter and image-planning agent. The user may provide product photos, Alibaba/1688 parameter screenshots, supplier text, rough keywords, or existing listing copy.',
     buildMarketplaceInstructionBlock(marketplaceId),
-    AMAZON_JP_LISTING_COPY_GUIDE,
+    AMAZON_MARKETPLACE_LISTING_COPY_GUIDE,
     IMAGE2_CONTINUOUS_GENERATION_GUIDE,
     'First extract conservative product facts from the available text and images, then write listingCopy, then create the image plan.',
     `Create a complete visual plan for exactly ${slots.length} Amazon listing image slots: ${slots.join(', ')}.`,
@@ -621,7 +622,7 @@ function buildListingPlannerInstructions(baseDraft: AmazonPromptDraft, listingIm
     formatAmazonListingReferenceMaterial(marketplaceId),
     PRODUCT_REFERENCE_FACTS_ONLY_PLANNER_GUIDE,
     'For each slot, write planMarkdown in Simplified Chinese as a detailed agent-style plan similar to a ChatGPT web response, then write a professional English image prompt and English negative prompt.',
-    `Each image prompt should fully plan the finished Amazon image: composition, product evidence, on-image ${getAmazonMarketplace(marketplaceId).onImageCopyLanguage} copy when useful, callouts or information areas when useful, visual hierarchy, and rendering style.`,
+    `Each image prompt should fully plan the finished Amazon image: composition, product evidence, on-image ${marketplace.onImageCopyLanguage} copy when useful, callouts or information areas when useful, visual hierarchy, and rendering style.`,
     'For secondary information images, prefer complete information design with clear hierarchy and useful product evidence; lifestyle or beauty slots should still have purposeful composition and visible product support.',
     'Return one seriesStyleGuide string in English for cross-image product consistency and factual visual continuity. Keep it style-neutral and do not use it to choose the final color palette, typography, background mood, lighting mood, or decorative style.',
     'Do not create, request, or describe separate style reference board images. The application uses built-in preset style reference boards.',
@@ -741,9 +742,9 @@ function buildPlannerInputText(
 
   const listingImageCount = normalizeListingImageCount(options.listingImageCount)
   return [
-    `Parse this ${marketplace.domain} product material and produce concise Japanese listing copy plus the ${listingImageCount}-image visual plan for ${marketplace.label}.`,
+    `Parse this ${marketplace.domain} listing copy/product material and produce the ${listingImageCount}-image visual plan plus concise ${marketplace.copyLanguage} listing copy for ${marketplace.label}.`,
     'The text may be rough Chinese sourcing notes, Alibaba/1688 parameters, OCR from screenshots, supplier descriptions, keywords, or an existing listing. If a field is uncertain, infer conservatively and avoid unsupported claims.',
-    'Required listing copy output only: Japanese new title pair (mainTitle75 plus itemHighlights125), 5 long Japanese Bullet Points around 320-380 characters each when evidence is sufficient, and Japanese Product Description / A+.',
+    `Required listing copy output only: ${marketplace.copyLanguage} title pair (mainTitle75 plus itemHighlights125), 5 long ${marketplace.copyLanguage} Bullet Points around 320-380 characters each when evidence is sufficient, and ${marketplace.copyLanguage} Product Description / A+.`,
     `Target marketplace language for visible customer-facing copy: ${marketplace.copyLanguage}.`,
     referenceImageInstruction,
     userProductFacts,
@@ -803,7 +804,7 @@ function buildChatPlannerSchemaGuide(
   return [
     `Return JSON with: ${productFields}, sellingPoints string[], listingCopy object, ${styleFields}, imagePlans array.`,
     'listingCopy must include only: mainTitle75, itemHighlights125, bulletPoints string[5], productDescriptionAPlus.',
-    'mainTitle75 must be <=75 characters including spaces. itemHighlights125 must be <=125 characters including spaces. bulletPoints should be about 320-380 Japanese characters each when product evidence is sufficient.',
+    `mainTitle75 must be <=75 characters including spaces. itemHighlights125 must be <=125 characters including spaces. bulletPoints should be about 320-380 ${marketplace.copyLanguage} characters each when product evidence is sufficient.`,
     `imagePlans must contain exactly ${slots.length} items in this order: ${slots.join(', ')}.`,
     'Each imagePlans item must include: slot, label, planMarkdown, prompt, negativePrompt.',
     `Visible on-image copy inside prompt must use natural ${marketplace.copyLanguage} for ${marketplace.domain}; prompt and negativePrompt should remain English.`,

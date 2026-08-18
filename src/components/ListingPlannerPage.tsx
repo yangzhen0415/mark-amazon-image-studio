@@ -4,18 +4,27 @@ import { getAmazonPlannerProfile, validateApiProfile } from '../lib/apiProfiles'
 import { DEFAULT_AMAZON_PROMPT_DRAFT } from '../lib/amazonPrompt'
 import { callAmazonPlannerApi, type PlannerApiResult } from '../lib/listingPlannerApi'
 import { DEFAULT_LISTING_IMAGE_COUNT } from '../lib/listingPlanner'
+import {
+  AMAZON_MARKETPLACES,
+  DEFAULT_AMAZON_MARKETPLACE_ID,
+  getAmazonMarketplace,
+  normalizeAmazonMarketplaceId,
+  type AmazonMarketplaceId,
+} from '../lib/amazonMarketplaces'
 import { prepareReferenceImagePayload } from '../lib/referenceImagePayload'
 import type { InputImage } from '../types'
 import { CloseIcon, CopyIcon, PhotoIcon, PlusIcon, TrashIcon } from './icons'
 
 const MAX_SOURCE_IMAGES = 10
-const LISTING_PLANNER_DRAFT_KEY = 'amazon-jp-listing-planner-draft'
+const LISTING_PLANNER_DRAFT_KEY = 'amazon-listing-planner-draft'
+const LEGACY_LISTING_PLANNER_DRAFT_KEY = 'amazon-jp-listing-planner-draft'
 const PLANNER_MODEL_FALLBACKS = ['gpt-5.6-sol', 'gpt-4.1', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4o-mini']
 
 type ListingPlannerDraftSnapshot = {
   sourceText: string
   sourceImageIds: string[]
   listing: string
+  marketplaceId: AmazonMarketplaceId
 }
 
 function extractSection(markdown: string, heading: RegExp) {
@@ -28,7 +37,7 @@ function extractSection(markdown: string, heading: RegExp) {
 }
 
 function getWorkbenchListingTransferText(markdown: string) {
-  const title = extractSection(markdown, /^#\s*New Title[^\n]*\n/im) || extractSection(markdown, /^#\s*Main Title[^\n]*\n/im)
+  const title = extractSection(markdown, /^#\s*Title[^\n]*\n/im) || extractSection(markdown, /^#\s*New Title[^\n]*\n/im) || extractSection(markdown, /^#\s*Main Title[^\n]*\n/im)
   const bulletsRaw = extractSection(markdown, /^#\s*Bullet Points[^\n]*\n/im)
   const bullets = bulletsRaw
     .split(/\r?\n/)
@@ -39,7 +48,7 @@ function getWorkbenchListingTransferText(markdown: string) {
   if (!title && bullets.length === 0) return markdown.trim()
 
   return [
-    '# New Title <= 75 + 125 characters',
+    '# Title <= 75 + 125 characters',
     title || '未提取到标题',
     '',
     '# Bullet Points x5',
@@ -66,11 +75,13 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
   const [sourceText, setSourceText] = useState('')
   const [sourceImages, setSourceImages] = useState<InputImage[]>([])
   const [listing, setListing] = useState('')
+  const [marketplaceId, setMarketplaceId] = useState<AmazonMarketplaceId>(DEFAULT_AMAZON_MARKETPLACE_ID)
   const [isPlanning, setIsPlanning] = useState(false)
   const [error, setError] = useState('')
   const [isDraftReady, setIsDraftReady] = useState(false)
 
   const plannerProfile = getAmazonPlannerProfile(settings)
+  const marketplace = getAmazonMarketplace(marketplaceId)
   const plannerProfileError = plannerProfile ? validateApiProfile(plannerProfile) : '未配置 AI 策划 API'
   const hasInput = Boolean(sourceText.trim() || sourceImages.length > 0)
   const canPlan = hasInput && !isPlanning && !plannerProfileError
@@ -80,7 +91,7 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
 
     const restoreDraft = async () => {
       try {
-        const rawDraft = window.localStorage.getItem(LISTING_PLANNER_DRAFT_KEY)
+        const rawDraft = window.localStorage.getItem(LISTING_PLANNER_DRAFT_KEY) ?? window.localStorage.getItem(LEGACY_LISTING_PLANNER_DRAFT_KEY)
         if (!rawDraft) return
         const draft = JSON.parse(rawDraft) as Partial<ListingPlannerDraftSnapshot>
         if (typeof draft.sourceText !== 'string' && typeof draft.listing !== 'string' && !Array.isArray(draft.sourceImageIds)) return
@@ -96,6 +107,7 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
         if (cancelled) return
         setSourceText(typeof draft.sourceText === 'string' ? draft.sourceText : '')
         setListing(typeof draft.listing === 'string' ? draft.listing : '')
+        setMarketplaceId(normalizeAmazonMarketplaceId(draft.marketplaceId))
         setSourceImages(restoredImages.filter((image): image is InputImage => Boolean(image)))
       } catch {
         window.localStorage.removeItem(LISTING_PLANNER_DRAFT_KEY)
@@ -117,15 +129,17 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
     const hasDraft = Boolean(sourceText.trim() || sourceImages.length > 0 || listing.trim())
     if (!hasDraft) {
       window.localStorage.removeItem(LISTING_PLANNER_DRAFT_KEY)
+      window.localStorage.removeItem(LEGACY_LISTING_PLANNER_DRAFT_KEY)
       return
     }
     const snapshot: ListingPlannerDraftSnapshot = {
       sourceText,
       sourceImageIds: sourceImages.map((image) => image.id),
       listing,
+      marketplaceId,
     }
     window.localStorage.setItem(LISTING_PLANNER_DRAFT_KEY, JSON.stringify(snapshot))
-  }, [isDraftReady, sourceText, sourceImages, listing])
+  }, [isDraftReady, sourceText, sourceImages, listing, marketplaceId])
 
   const addFiles = async (files: FileList | File[]) => {
     const accepted = Array.from(files).filter((file) => file.type.startsWith('image/'))
@@ -206,7 +220,7 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
             referenceImageDataUrls: referencePayload.dataUrls,
             model,
             mode: 'listing',
-            marketplaceId: 'jp',
+            marketplaceId,
             listingImageCount: DEFAULT_LISTING_IMAGE_COUNT,
             signal: controller.signal,
           })
@@ -231,9 +245,10 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
           sourceText,
           sourceImageIds: sourceImages.map((image) => image.id),
           listing: nextListing,
+          marketplaceId,
         } satisfies ListingPlannerDraftSnapshot),
       )
-      showToast(usedModel && usedModel !== plannerProfile.model.trim() ? `日本站 Listing 已生成（自动改用 ${usedModel}）` : '日本站 Listing 已生成', 'success')
+      showToast(usedModel && usedModel !== plannerProfile.model.trim() ? `${marketplace.label} Listing 已生成（自动改用 ${usedModel}）` : `${marketplace.label} Listing 已生成`, 'success')
     } catch (err) {
       if (controller.signal.aborted) return
       setError(err instanceof Error ? err.message : String(err))
@@ -270,12 +285,14 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
         sourceText,
         sourceImageIds: sourceImages.map((image) => image.id),
         listing,
+        marketplaceId,
       } satisfies ListingPlannerDraftSnapshot),
     )
     const workbenchListing = getWorkbenchListingTransferText(listing)
     clearInputImages()
-    sessionStorage.setItem('amazon-jp-listing-transfer', workbenchListing)
-    window.dispatchEvent(new CustomEvent('amazon-jp-listing-transfer', { detail: { listing: workbenchListing } }))
+    const transferPayload = JSON.stringify({ listing: workbenchListing, marketplaceId })
+    sessionStorage.setItem('amazon-jp-listing-transfer', transferPayload)
+    window.dispatchEvent(new CustomEvent('amazon-jp-listing-transfer', { detail: { listing: workbenchListing, marketplaceId } }))
     onOpenWorkbench?.()
     showToast('Listing 已传到图片工作台，请重新上传商品角度图', 'success')
   }
@@ -284,7 +301,7 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
     <section data-no-drag-select className="mx-auto mt-6 max-w-6xl">
       <div className="mb-4">
         <h2 className="text-xl font-bold text-gray-950 dark:text-gray-50">Listing 策划</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">粘贴阿里巴巴/1688 参数、商品图或参数截图，生成日本站 Listing。生图参考图请到图片工作台重新上传，最多 3 张。</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">粘贴阿里巴巴/1688 参数、商品图或参数截图，按目标站点生成 Listing。生图参考图请到图片工作台重新上传，最多 3 张。</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
@@ -294,10 +311,24 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
               <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">参评图 / 参数信息</div>
               <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">可直接复制图片后在这里按 Ctrl+V，也可上传截图。</div>
             </div>
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="ios-button h-9 gap-2 px-3 text-sm font-medium">
-              <PlusIcon className="h-4 w-4" />
-              上传
-            </button>
+            <div className="flex items-center gap-2">
+              <label className="inline-flex h-9 items-center gap-2 rounded-xl bg-gray-100 px-2.5 text-sm font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">
+                <span className="text-xs text-gray-400">目标站点</span>
+                <select
+                  value={marketplaceId}
+                  onChange={(event) => setMarketplaceId(normalizeAmazonMarketplaceId(event.target.value))}
+                  className="h-7 bg-transparent text-sm font-semibold text-gray-900 outline-none dark:text-gray-100"
+                >
+                  {AMAZON_MARKETPLACES.map((item) => (
+                    <option key={item.id} value={item.id}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="ios-button h-9 gap-2 px-3 text-sm font-medium">
+                <PlusIcon className="h-4 w-4" />
+                上传
+              </button>
+            </div>
           </div>
 
           <textarea
@@ -360,9 +391,11 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
                 type="button"
                 onClick={() => {
                   window.localStorage.removeItem(LISTING_PLANNER_DRAFT_KEY)
+                  window.localStorage.removeItem(LEGACY_LISTING_PLANNER_DRAFT_KEY)
                   setSourceText('')
                   setSourceImages([])
                   setListing('')
+                  setMarketplaceId(DEFAULT_AMAZON_MARKETPLACE_ID)
                   setError('')
                 }}
                 className="inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-red-600 hover:bg-red-50"
@@ -383,8 +416,8 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
         <div className="ios-surface p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div>
-              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">日本站 Listing</div>
-              <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">新规标题 75+125 / 五点约 350 字符 / Description-A+</div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{marketplace.label} Listing</div>
+              <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">标题 75+125 / 五点约 350 字符 / Description-A+ · {marketplace.copyLanguage}</div>
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={copyListing} disabled={!listing.trim()} className="ios-button h-9 gap-1.5 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-40">
@@ -397,7 +430,7 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
             </div>
           </div>
           <textarea
-            value={listing || '生成后这里会显示日本站 Listing。确认文案后点“传到图片工作台”，再去上传商品各角度参考图。'}
+            value={listing || `生成后这里会显示${marketplace.label} Listing。确认文案后点“传到图片工作台”，再去上传商品各角度参考图。`}
             readOnly
             className="ios-field h-[620px] w-full resize-none p-3 font-mono text-xs leading-relaxed text-gray-700 dark:text-gray-200"
             spellCheck={false}

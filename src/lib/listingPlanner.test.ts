@@ -366,6 +366,7 @@ describe('callAmazonPlannerApi', () => {
         apiMode: 'responses',
         model: 'gpt-planner-profile',
       }),
+      marketplaceId: 'us',
       signal: controller.signal,
     })
 
@@ -650,6 +651,7 @@ describe('callAmazonPlannerApi', () => {
         apiMode: 'chat',
         model: DEFAULT_CHAT_MODEL,
       }),
+      marketplaceId: 'us',
     })
 
     const [url, init] = fetchMock.mock.calls[0]!
@@ -745,6 +747,7 @@ describe('callAmazonPlannerApi', () => {
         apiMode: 'chat',
         model: DEFAULT_CHAT_MODEL,
       }),
+      marketplaceId: 'us',
     })
 
     const [url, init] = fetchMock.mock.calls[0]!
