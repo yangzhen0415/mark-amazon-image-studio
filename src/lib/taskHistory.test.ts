@@ -1,0 +1,215 @@
+import { describe, expect, it } from 'vitest'
+import { DEFAULT_PARAMS, type TaskRecord } from '../types'
+import {
+  UNCATEGORIZED_PRODUCT_FILTER,
+  getTaskHistoryCategory,
+  getTaskProductFilterOptions,
+  getWorkflowLabel,
+  matchesTaskHistoryFilters,
+} from './taskHistory'
+
+function task(overrides: Partial<TaskRecord> = {}): TaskRecord {
+  return {
+    id: 'task-a',
+    prompt: 'Create a professional Amazon product listing image.\n\nProduct facts:\n- Product title: Large Folding Umbrella\n',
+    params: { ...DEFAULT_PARAMS },
+    inputImageIds: [],
+    outputImages: [],
+    status: 'done',
+    error: null,
+    createdAt: 1,
+    finishedAt: 2,
+    elapsed: 1,
+    ...overrides,
+  }
+}
+
+describe('task history categories', () => {
+  it('uses explicit Amazon Listing metadata when present', () => {
+    const category = getTaskHistoryCategory(task({
+      category: {
+        productTitle: 'Large Folding Umbrella',
+        workflow: 'amazon-listing',
+        amazonSlot: 'MAIN',
+      },
+    }))
+
+    expect(category).toMatchObject({
+      productTitle: 'Large Folding Umbrella',
+      workflow: 'amazon-listing',
+      amazonSlot: 'MAIN',
+      marketplaceId: 'us',
+      aspect: 'square',
+    })
+  })
+
+  it('uses explicit A+ metadata and detects landscape size', () => {
+    const category = getTaskHistoryCategory(task({
+      prompt: 'Create A+ module for the product.\n\nA+ module requirements:\n- Final Seller Central recommended upload size: 970x300px.',
+      params: { ...DEFAULT_PARAMS, size: '3536x1184' },
+      category: {
+        productTitle: 'LED Desk Lamp',
+        workflow: 'amazon-aplus',
+        amazonSlot: 'A+S01',
+        aPlusType: 'standard',
+      },
+    }))
+
+    expect(category).toMatchObject({
+      productTitle: 'LED Desk Lamp',
+      workflow: 'amazon-aplus',
+      amazonSlot: 'A+S01',
+      aPlusType: 'standard',
+      marketplaceId: 'us',
+      aspect: 'landscape',
+    })
+  })
+
+  it('labels and filters dedicated image editor tasks', () => {
+    const record = task({
+      prompt: 'generated role prompt',
+      category: { workflow: 'seedream-edit' },
+      imageEditContext: {
+        sourceImageId: 'source',
+        visualGuideImageId: 'guide',
+        referenceImageIds: ['reference'],
+        userInstruction: '删除蓝色箭头指向的标签',
+      },
+    })
+
+    expect(getTaskHistoryCategory(record).workflow).toBe('seedream-edit')
+    expect(getWorkflowLabel('seedream-edit')).toBe('图片编辑')
+    expect(matchesTaskHistoryFilters(record, {
+      searchQuery: '蓝色箭头',
+      filterStatus: 'all',
+      filterFavorite: false,
+      filterProductTitle: '',
+      filterWorkflow: 'seedream-edit',
+      filterAspect: 'all',
+    })).toBe(true)
+  })
+
+  it('preserves explicit Amazon marketplace metadata', () => {
+    const category = getTaskHistoryCategory(task({
+      category: {
+        productTitle: 'Desk Organizer',
+        workflow: 'amazon-listing',
+        amazonSlot: 'PT01',
+        marketplaceId: 'de',
+      },
+    }))
+
+    expect(category).toMatchObject({
+      productTitle: 'Desk Organizer',
+      workflow: 'amazon-listing',
+      amazonSlot: 'PT01',
+      marketplaceId: 'de',
+    })
+  })
+
+  it('infers product and workflow from legacy prompts', () => {
+    const category = getTaskHistoryCategory(task())
+
+    expect(category.productTitle).toBe('Large Folding Umbrella')
+    expect(category.workflow).toBe('amazon-listing')
+  })
+
+  it('keeps tasks without product title under the uncategorized product filter', () => {
+    expect(matchesTaskHistoryFilters(task({
+      prompt: 'A regular creative prompt',
+      category: { workflow: 'gallery' },
+    }), {
+      searchQuery: '',
+      filterStatus: 'all',
+      filterFavorite: false,
+      filterProductTitle: UNCATEGORIZED_PRODUCT_FILTER,
+      filterWorkflow: 'all',
+      filterAspect: 'all',
+    })).toBe(true)
+  })
+
+  it('combines product, workflow, aspect, status, favorite, and text filters', () => {
+    const record = task({
+      prompt: 'Create a premium Amazon A+ hero banner for a desk lamp.',
+      params: { ...DEFAULT_PARAMS, size: '3536x1184' },
+      isFavorite: true,
+      category: {
+        productTitle: 'LED Desk Lamp',
+        workflow: 'amazon-aplus',
+        amazonSlot: 'A+P01',
+        aPlusType: 'premium',
+      },
+    })
+
+    expect(matchesTaskHistoryFilters(record, {
+      searchQuery: 'hero',
+      filterStatus: 'done',
+      filterFavorite: true,
+      filterProductTitle: 'LED Desk Lamp',
+      filterWorkflow: 'amazon-aplus',
+      filterAspect: 'landscape',
+    })).toBe(true)
+
+    expect(matchesTaskHistoryFilters(record, {
+      searchQuery: 'hero',
+      filterStatus: 'done',
+      filterFavorite: true,
+      filterProductTitle: 'LED Desk Lamp',
+      filterWorkflow: 'amazon-listing',
+      filterAspect: 'landscape',
+    })).toBe(false)
+  })
+
+  it('matches product filters after cleaning title punctuation and invisible characters', () => {
+    const record = task({
+      category: {
+        productTitle: '“Summer Dresses for Women\u200B”',
+        workflow: 'amazon-aplus',
+      },
+    })
+
+    expect(matchesTaskHistoryFilters(record, {
+      searchQuery: '',
+      filterStatus: 'all',
+      filterFavorite: false,
+      filterProductTitle: 'Summer Dresses for Women...',
+      filterWorkflow: 'all',
+      filterAspect: 'all',
+    })).toBe(true)
+  })
+
+  it('sorts product filter options by most recent task', () => {
+    const options = getTaskProductFilterOptions([
+      task({ id: 'old-lamp', createdAt: 1, category: { productTitle: 'LED Desk Lamp', workflow: 'amazon-aplus' } }),
+      task({ id: 'umbrella', createdAt: 3, category: { productTitle: 'Large Folding Umbrella', workflow: 'amazon-listing' } }),
+      task({ id: 'new-lamp', createdAt: 5, category: { productTitle: 'LED Desk Lamp', workflow: 'amazon-listing' } }),
+    ])
+
+    expect(options.map((option) => [option.label, option.count])).toEqual([
+      ['LED Desk Lamp', 2],
+      ['Large Folding Umbrella', 1],
+    ])
+  })
+
+  it('groups Listing and A+ history under the same cleaned product title', () => {
+    const options = getTaskProductFilterOptions([
+      task({
+        id: 'listing-dress',
+        createdAt: 1,
+        category: { productTitle: 'Summer Dresses for Women...', workflow: 'amazon-listing' },
+      }),
+      task({
+        id: 'aplus-dress',
+        createdAt: 2,
+        category: { productTitle: '“Summer Dresses for Women\u200B”', workflow: 'amazon-aplus' },
+      }),
+    ])
+
+    expect(options).toHaveLength(1)
+    expect(options[0]).toMatchObject({
+      label: 'Summer Dresses for Women',
+      value: 'Summer Dresses for Women',
+      count: 2,
+    })
+  })
+})
