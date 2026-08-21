@@ -177,14 +177,6 @@
 
 </details>
 
-## 在线体验
-
-- 体验地址：[https://yangzhen0415.github.io/mark-amazon-image-studio/](https://yangzhen0415.github.io/mark-amazon-image-studio/)
-- 打开在线体验不需要 Codex；Codex 只是一种可选的本地安装方式。
-- 在线体验不会内置 API Key；生成图片和 AI 策划都需要在右上角设置中填写你自己的 OpenAI 或兼容接口 Key。
-- API Key 保存在当前浏览器本地，不会提交到仓库；如果线上页面加载异常，也可以按下面的“启动项目”在本地运行。
-- 💡 提示：若需调用非 HTTPS 的内网或本地 HTTP API，请使用 GitHub Pages 版本或自行部署，Vercel 部署的体验版绑定的 .dev 域名因安全策略通常要求接口必须为 HTTPS。
-
 ## 核心功能
 
 - AI 策划 Listing 图片：支持美国、日本、德国、法国、意大利、西班牙和 Ozon 俄语目标站点；粘贴标题、五点描述或产品说明后，默认生成 `MAIN + PT01-PT06` 共 7 张图片，也可自定义为 `7-12` 张。
