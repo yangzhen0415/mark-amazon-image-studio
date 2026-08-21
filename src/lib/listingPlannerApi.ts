@@ -828,6 +828,17 @@ function buildChatPlannerSystemPrompt(
   ].join('\n\n')
 }
 
+function shouldUseV1ChatCompletionsPath(baseUrl: string) {
+  const trimmed = baseUrl.trim()
+  const input = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`
+  try {
+    const hostname = new URL(input).hostname.toLowerCase()
+    return hostname === 'app.yylx.io' || hostname.endsWith('.app.yylx.io')
+  } catch {
+    return false
+  }
+}
+
 export async function callAmazonPlannerApi(options: {
   listingText: string
   baseDraft: AmazonPromptDraft
@@ -864,9 +875,10 @@ export async function callAmazonPlannerApi(options: {
   const referenceImageDataUrls = isDeepSeekPlannerProfile
     ? []
     : options.referenceImageDataUrls ?? []
+  const chatCompletionsNeedsV1Path = shouldUseV1ChatCompletionsPath(options.profile.baseUrl)
   const response = await fetch(
     useChatCompletions
-      ? buildApiUrl(options.profile.baseUrl, 'chat/completions', proxyConfig, useApiProxy, { prefixV1: false })
+      ? buildApiUrl(options.profile.baseUrl, 'chat/completions', proxyConfig, useApiProxy, { prefixV1: chatCompletionsNeedsV1Path })
       : buildApiUrl(options.profile.baseUrl, 'responses', proxyConfig, useApiProxy),
     {
     method: 'POST',

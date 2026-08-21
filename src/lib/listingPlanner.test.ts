@@ -677,6 +677,42 @@ describe('callAmazonPlannerApi', () => {
     expect(result.plans).toHaveLength(7)
   })
 
+  it('uses v1 Chat Completions path for app.yylx.io planner proxy', async () => {
+    const apiPayload = createApiPayload('Yylx Gemini planned tumbler')
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: JSON.stringify(apiPayload),
+          },
+          finish_reason: 'stop',
+        },
+      ],
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await callAmazonPlannerApi({
+      listingText: SAMPLE_LISTING,
+      baseDraft: DEFAULT_AMAZON_PROMPT_DRAFT,
+      profile: createDefaultOpenAIProfile({
+        baseUrl: 'https://app.yylx.io',
+        apiKey: 'yylx-key',
+        apiMode: 'chat',
+        model: 'gemini-2.5-flash-lite',
+        apiProxy: true,
+      }),
+    })
+
+    const [url] = fetchMock.mock.calls[0]!
+    expect(url).toBe('/api-proxy/v1/chat/completions')
+    expect(result.parsed.title).toBe('Yylx Gemini planned tumbler')
+  })
+
   it('uses the requested Listing image count in Chat Completions schema guidance', async () => {
     const apiPayload = createApiPayload('Chat 10 image tumbler', 10)
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify({
