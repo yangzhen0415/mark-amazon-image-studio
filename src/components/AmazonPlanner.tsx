@@ -74,7 +74,8 @@ const LABEL_CLASS = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[
 const PLAN_LIST_CLASS = 'grid max-h-[420px] gap-2 overflow-y-auto overscroll-contain pr-1 custom-scrollbar sm:max-h-[480px]'
 const GUIDE_HINT_CLASS = 'mb-3 rounded-[var(--ios-radius-md)] bg-[hsl(var(--ios-blue-tint))] px-3 py-2 text-xs font-medium leading-relaxed text-[hsl(var(--primary))]'
 const DEEPSEEK_PLANNER_NOTICE = '当前 AI 策划配置为 DeepSeek 官方接口。DeepSeek 策划阶段不会读取参考图，系统会仅用 Listing 文本和你填写的商品信息生成策划；参考图仍会在正式生图时随生图请求发送。请把产品颜色、形状、结构、配件、Logo、套装数量等关键特征写进 Listing 或商品信息中。'
-const PLANNER_MODEL_FALLBACKS = ['gpt-5.6-sol', 'gpt-4.1', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4o-mini']
+const GPT_PLANNER_MODEL_FALLBACKS = ['gpt-5.6-sol', 'gpt-5', 'gpt-4.1', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4o-mini']
+const GEMINI_PLANNER_MODEL_FALLBACKS = ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3-flash', 'gemini-2.5-flash']
 const STYLE_PREVIEW_WIDTH = 420
 const STYLE_PREVIEW_HEIGHT = 500
 const STYLE_PREVIEW_OFFSET = 16
@@ -295,6 +296,16 @@ function getPlannerFailureDetail(err: unknown): string {
 function isPlannerModelUnavailableError(err: unknown) {
   const message = err instanceof Error ? err.message : String(err)
   return /model|not.*available|not.*found|does not exist|unsupported|not supported|模型|可用模型|404/i.test(message)
+}
+
+function getPlannerModelCandidates(model: string) {
+  const trimmed = model.trim()
+  const fallbacks = /^gemini[-/.]/i.test(trimmed)
+    ? GEMINI_PLANNER_MODEL_FALLBACKS
+    : /^gpt[-/.]|^codex[-/.]/i.test(trimmed)
+      ? GPT_PLANNER_MODEL_FALLBACKS
+      : []
+  return [trimmed, ...fallbacks].filter((item, index, array) => item && array.indexOf(item) === index)
 }
 
 function updateDraft<K extends keyof AmazonPromptDraft>(
@@ -1410,10 +1421,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     try {
       const currentMarketplaceId = marketplaceId
       const referencePayload = await prepareReferencePayloadForRequest(inputImages.map((image) => image.dataUrl), controller.signal)
-      const models = [
-        plannerProfile.model.trim(),
-        ...(plannerProfile.provider === 'openai' ? PLANNER_MODEL_FALLBACKS : []),
-      ].filter((model, index, array) => model && array.indexOf(model) === index)
+      const models = getPlannerModelCandidates(plannerProfile.model)
       let result: PlannerApiResult | null = null
       let lastError: unknown = null
       let usedModel = ''

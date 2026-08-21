@@ -18,7 +18,8 @@ import { CloseIcon, CopyIcon, PhotoIcon, PlusIcon, TrashIcon } from './icons'
 const MAX_SOURCE_IMAGES = 10
 const LISTING_PLANNER_DRAFT_KEY = 'amazon-listing-planner-draft'
 const LEGACY_LISTING_PLANNER_DRAFT_KEY = 'amazon-jp-listing-planner-draft'
-const PLANNER_MODEL_FALLBACKS = ['gpt-5.6-sol', 'gpt-4.1', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4o-mini']
+const GPT_PLANNER_MODEL_FALLBACKS = ['gpt-5.6-sol', 'gpt-5', 'gpt-4.1', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4o-mini']
+const GEMINI_PLANNER_MODEL_FALLBACKS = ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3-flash', 'gemini-2.5-flash']
 
 type ListingPlannerDraftSnapshot = {
   sourceText: string
@@ -58,7 +59,17 @@ function getWorkbenchListingTransferText(markdown: string) {
 
 function isModelUnavailableError(err: unknown) {
   const message = err instanceof Error ? err.message : String(err)
-  return /model|not.*available|not.*found|does not exist|不可用|可用模型|模型范围|不存在|404/i.test(message)
+  return /model|not.*available|not.*found|does not exist|unsupported|not supported|不可用|可用模型|模型范围|不存在|404/i.test(message)
+}
+
+function getPlannerModelCandidates(model: string) {
+  const trimmed = model.trim()
+  const fallbacks = /^gemini[-/.]/i.test(trimmed)
+    ? GEMINI_PLANNER_MODEL_FALLBACKS
+    : /^gpt[-/.]|^codex[-/.]/i.test(trimmed)
+      ? GPT_PLANNER_MODEL_FALLBACKS
+      : []
+  return [trimmed, ...fallbacks].filter((item, index, array) => item && array.indexOf(item) === index)
 }
 
 type ListingPlannerPageProps = {
@@ -204,10 +215,7 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
         sourceImages.map((image) => image.dataUrl),
         { signal: controller.signal },
       )
-      const models = [
-        plannerProfile.model.trim(),
-        ...PLANNER_MODEL_FALLBACKS,
-      ].filter((model, index, array) => model && array.indexOf(model) === index)
+      const models = getPlannerModelCandidates(plannerProfile.model)
       let result: PlannerApiResult | null = null
       let lastError: unknown = null
       let usedModel = ''
@@ -231,10 +239,7 @@ export default function ListingPlannerPage({ onOpenWorkbench }: ListingPlannerPa
           if (controller.signal.aborted || !isModelUnavailableError(err)) throw err
         }
       }
-      if (!result) {
-        const detail = lastError instanceof Error ? lastError.message : String(lastError || 'AI 策划失败')
-        throw new Error(`当前策划接口拒绝了这些模型：${models.join('、')}。\n\n最后错误：${detail}\n\n请在设置 AI 里把“策划模型”改成这个 localhost 接口实际支持的模型名，或让接口开放其中一个模型。`)
-      }
+      if (!result) throw lastError instanceof Error ? lastError : new Error(String(lastError || 'AI 策划失败'))
       if (controller.signal.aborted) return
       const nextListing = result.parsed.listingCopyMarkdown?.trim()
       if (!nextListing) throw new Error('AI 没有返回 Listing 文案，请补充参数信息后重试。')

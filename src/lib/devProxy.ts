@@ -78,7 +78,17 @@ export function buildApiUrl(
 }
 
 export function readClientDevProxyConfig(): DevProxyConfig | null {
-  return null
+  const target = normalizeBaseUrlPreservePath(
+    readRuntimeEnv(import.meta.env.VITE_API_PROXY_TARGET) || 'https://app.yylx.io',
+  )
+  if (!target) return null
+  return {
+    enabled: readRuntimeEnv(import.meta.env.VITE_API_PROXY_AVAILABLE) !== 'false',
+    prefix: readRuntimeEnv(import.meta.env.VITE_API_PROXY_PREFIX) || DEFAULT_PROXY_PREFIX,
+    target,
+    changeOrigin: readRuntimeEnv(import.meta.env.VITE_API_PROXY_CHANGE_ORIGIN) !== 'false',
+    secure: readRuntimeEnv(import.meta.env.VITE_API_PROXY_SECURE) !== 'false',
+  }
 }
 
 export function isApiProxyAvailable(proxyConfig: DevProxyConfig | null = readClientDevProxyConfig()): boolean {
