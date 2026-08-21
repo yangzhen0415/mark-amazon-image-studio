@@ -1,4 +1,4 @@
-export type AmazonMarketplaceId = 'us' | 'jp' | 'de' | 'fr' | 'it' | 'es'
+export type AmazonMarketplaceId = 'us' | 'jp' | 'de' | 'fr' | 'it' | 'es' | 'ozon'
 
 export interface AmazonMarketplaceConfig {
   id: AmazonMarketplaceId
@@ -96,6 +96,21 @@ export const AMAZON_MARKETPLACES: AmazonMarketplaceConfig[] = [
     localGuidance: [
       'Use concise natural Spanish customer-facing copy suitable for Amazon.es shoppers.',
       'Use Spanish phrasing and units where relevant; avoid English, Chinese copy, and literal machine translation.',
+    ],
+    allowsCjkVisibleCopy: false,
+  },
+  {
+    id: 'ozon',
+    label: 'Ozon 俄语',
+    shortLabel: 'Ozon',
+    domain: 'Ozon.ru',
+    locale: 'ru-RU',
+    copyLanguage: 'Russian',
+    onImageCopyLanguage: 'Russian',
+    localGuidance: [
+      'Use concise natural Russian customer-facing copy suitable for Ozon.ru shoppers.',
+      'Use Cyrillic Russian visible copy; avoid English, Chinese copy, Japanese copy, and literal machine translation.',
+      'For listing images, plan a vertical 3:4 Ozon gallery image. The local workbench output size is 750x1000 unless the user explicitly requests another Ozon size.',
     ],
     allowsCjkVisibleCopy: false,
   },

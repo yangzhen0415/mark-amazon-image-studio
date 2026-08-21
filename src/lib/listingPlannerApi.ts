@@ -610,13 +610,18 @@ function buildFieldLanguageRules(marketplaceId?: AmazonMarketplaceId, options: {
 function buildListingPlannerInstructions(baseDraft: AmazonPromptDraft, listingImageCount: number, marketplaceId?: AmazonMarketplaceId) {
   const slots = getAmazonListingImageSlots(listingImageCount)
   const marketplace = getAmazonMarketplace(marketplaceId)
+  const isOzon = marketplace.id === 'ozon'
   return [
-    'You are an Amazon marketplace listing copywriter and image-planning agent. The user may provide product photos, Alibaba/1688 parameter screenshots, supplier text, rough keywords, or existing listing copy.',
+    isOzon
+      ? 'You are an Ozon.ru Russian listing copywriter and image-planning agent. The user may provide product photos, Alibaba/1688 parameter screenshots, supplier text, rough keywords, or existing listing copy.'
+      : 'You are an Amazon marketplace listing copywriter and image-planning agent. The user may provide product photos, Alibaba/1688 parameter screenshots, supplier text, rough keywords, or existing listing copy.',
     buildMarketplaceInstructionBlock(marketplaceId),
     AMAZON_MARKETPLACE_LISTING_COPY_GUIDE,
     IMAGE2_CONTINUOUS_GENERATION_GUIDE,
     'First extract conservative product facts from the available text and images, then write listingCopy, then create the image plan.',
-    `Create a complete visual plan for exactly ${slots.length} Amazon listing image slots: ${slots.join(', ')}.`,
+    isOzon
+      ? `Create a complete visual plan for exactly ${slots.length} Ozon gallery image slots: ${slots.join(', ')}. Every Ozon listing image should be planned as a 750x1000 vertical 3:4 image with natural Russian visible copy when useful. Do not apply Amazon A+ module rules.`
+      : `Create a complete visual plan for exactly ${slots.length} Amazon listing image slots: ${slots.join(', ')}.`,
     'The application only fixes the slot count and order. You must decide the strategy, composition, copy approach, visual treatment, prompt content, and negative prompt content.',
     'Use the Amazon reference material below to improve compliance judgment. It is not a fixed slot-by-slot framework, and it must not replace the product facts from the listing and reference images.',
     formatAmazonListingReferenceMaterial(marketplaceId),

@@ -80,6 +80,7 @@ const STYLE_PREVIEW_WIDTH = 420
 const STYLE_PREVIEW_HEIGHT = 500
 const STYLE_PREVIEW_OFFSET = 16
 const AMAZON_WORKBENCH_DRAFT_KEY = 'amazon-image-studio.workbench-draft'
+const OZON_LISTING_IMAGE_SIZE = '750x1000'
 const STYLE_DENSITY_OPTIONS: Array<{ value: AmazonStyleDensityMode; label: string }> = [
   { value: 'rich', label: '信息丰富' },
   { value: 'minimal', label: '简约' },
@@ -421,6 +422,7 @@ function getAmazonListingPlannerChecks(
   hasStyleReference: boolean,
   styleReferenceRequired: boolean,
 ): Array<{ label: string; status: ComplianceStatus; detail: string }> {
+  const isOzon = marketplaceId === 'ozon'
   return [
     {
       label: '目标站点',
@@ -434,8 +436,10 @@ function getAmazonListingPlannerChecks(
     },
     {
       label: '图片规格',
-      status: /^(1024|2048|4096)x(1024|2048|4096)$/.test(size) ? 'ready' : 'warning',
-      detail: /4096x4096/.test(size) ? '4K 方图' : /2048x2048/.test(size) ? '2K 方图' : /1024x1024/.test(size) ? '1K 方图' : size || '未选择 1K/2K/4K',
+      status: isOzon ? (size === OZON_LISTING_IMAGE_SIZE ? 'ready' : 'warning') : /^(1024|2048|4096)x(1024|2048|4096)$/.test(size) ? 'ready' : 'warning',
+      detail: isOzon
+        ? `${OZON_LISTING_IMAGE_SIZE} 竖图`
+        : /4096x4096/.test(size) ? '4K 方图' : /2048x2048/.test(size) ? '2K 方图' : /1024x1024/.test(size) ? '1K 方图' : size || '未选择 1K/2K/4K',
     },
     {
       label: '参考图',
@@ -535,6 +539,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
   const selectedAPlusPlan = selectedAPlusPlanIndex == null ? null : aPlusPlansWithSizes[selectedAPlusPlanIndex] ?? null
   const selectedAPlusText = selectedAPlusPlan ? formatAPlusModuleText(selectedAPlusPlan) : ''
   const customStyleReferences = settings.customStyleReferences ?? []
+  const isOzonMarketplace = marketplaceId === 'ozon'
   const selectedStylePreset = getStylePresetById(selectedStylePresetId)
   const selectedStyleImage = selectedStyleReference
   const selectedStyleLabel = selectedStyleReference?.label ?? selectedStylePreset?.label ?? ''
@@ -582,7 +587,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
   const plannerProfileValidation = plannerProfile ? validateApiProfile(plannerProfile) : '未选择支持 Chat Completions 或 Responses API 的 AI 策划配置'
   const plannerApiLabel = plannerProfile?.apiMode === 'chat' ? 'Chat Completions' : 'Responses API'
   const plannerUsesOfficialDeepSeek = plannerProfile ? isOfficialDeepSeekPlannerProfile(plannerProfile) : false
-  const listingTargetSize = resolution === '4k' ? '4096x4096' : resolution === '2k' ? '2048x2048' : '1024x1024'
+  const listingTargetSize = isOzonMarketplace ? OZON_LISTING_IMAGE_SIZE : resolution === '4k' ? '4096x4096' : resolution === '2k' ? '2048x2048' : '1024x1024'
   const targetSize = plannerMode === 'aplus' && selectedAPlusPlan ? selectedAPlusPlan.generationSize : listingTargetSize
   const generationParamLabel = `${DEFAULT_PARAMS.output_format.toUpperCase()} / ${DEFAULT_PARAMS.quality} / 压缩率${DEFAULT_PARAMS.output_compression}`
   const visiblePlanCount = plannerMode === 'aplus' ? aPlusPlansWithSizes.length : imagePlans.length
@@ -1555,6 +1560,10 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
 
   const changePlannerMode = (mode: AmazonPlannerMode) => {
     if (mode === plannerMode) return
+    if (marketplaceId === 'ozon' && mode === 'aplus') {
+      showToast('Ozon 当前使用 Listing 图流程，A+ 图只适用于 Amazon', 'info')
+      return
+    }
     setPlannerMode(mode)
     setStylePreview(null)
     setStyleError('')
@@ -1579,7 +1588,9 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     const nextMarketplaceId = normalizeAmazonMarketplaceId(value)
     if (nextMarketplaceId === marketplaceId) return
     const clearedStyleGuides = { listing: '', aplus: '' }
+    const nextPlannerMode = nextMarketplaceId === 'ozon' ? 'listing' : plannerMode
     setMarketplaceId(nextMarketplaceId)
+    setPlannerMode(nextPlannerMode)
     setImagePlans([])
     setAPlusPlans([])
     setSeriesStyleGuides(clearedStyleGuides)
@@ -1589,6 +1600,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     setActionProgress({})
     updateCurrentPlannerSession({
       marketplaceId: nextMarketplaceId,
+      mode: nextPlannerMode,
       seriesStyleGuides: clearedStyleGuides,
       imagePlans: [],
       aPlusPlans: [],
@@ -1992,9 +2004,10 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                 <button
                   key={mode}
                   type="button"
+                  disabled={isOzonMarketplace && mode === 'aplus'}
                   onClick={() => changePlannerMode(mode)}
                   data-active={plannerMode === mode}
-                  className={`ios-segment h-8 px-3 text-sm font-medium ${plannerMode === mode ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                  className={`ios-segment h-8 px-3 text-sm font-medium ${isOzonMarketplace && mode === 'aplus' ? 'cursor-not-allowed text-gray-300 dark:text-gray-600' : plannerMode === mode ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
                 >
                   {label}
                 </button>
@@ -2028,19 +2041,25 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                 </select>
               </label>
             )}
-            <div className="ios-segmented">
-              {(['1k', '2k', '4k'] as const).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setResolution(item)}
-                  data-active={resolution === item}
-                  className={`ios-segment h-8 min-w-14 px-3 text-sm font-medium ${resolution === item ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
-                >
-                  {item.toUpperCase()}
-                </button>
-              ))}
-            </div>
+            {isOzonMarketplace && plannerMode === 'listing' ? (
+              <div className="inline-flex h-10 items-center rounded-[var(--ios-radius-md)] bg-[hsl(var(--muted))] px-3 text-sm font-semibold text-gray-800 dark:text-gray-100">
+                Ozon {OZON_LISTING_IMAGE_SIZE}
+              </div>
+            ) : (
+              <div className="ios-segmented">
+                {(['1k', '2k', '4k'] as const).map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setResolution(item)}
+                    data-active={resolution === item}
+                    className={`ios-segment h-8 min-w-14 px-3 text-sm font-medium ${resolution === item ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                  >
+                    {item.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
               type="button"
               onClick={() => setShowPlannerHistory((value) => !value)}
