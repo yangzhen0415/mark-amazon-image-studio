@@ -1,21 +1,21 @@
 # 亚马逊图片工作台
 
-亚马逊图片工作台是一个面向 Amazon Listing 的产品图片策划与生成工作台，基于 [CookSleep/gpt_image_playground](https://github.com/CookSleep/gpt_image_playground) 修改。
+亚马逊图片工作台是一个面向 Amazon / Ozon 铺货卖家的产品图片策划、Listing 文案和生图工作台，基于 [CookSleep/gpt_image_playground](https://github.com/CookSleep/gpt_image_playground) 修改。
 
-它适合用来把产品标题、五点描述、卖点文案和参考图，整理成 Amazon Listing 图片或 A+ Content 图片策划，并逐张生成图片。
+它适合用来把阿里巴巴商品图、参数截图、产品标题、五点描述、卖点文案和参考图，整理成 Amazon Listing / A+ Content 或 Ozon 俄语商品图策划，并逐张生成图片。
 
-项目仓库：[Ali-Aria/amazon-image-studio](https://github.com/Ali-Aria/amazon-image-studio)
+项目仓库：[yangzhen0415/mark-amazon-image-studio](https://github.com/yangzhen0415/mark-amazon-image-studio)
 
 ## 开源说明
 
 > [!IMPORTANT]
 > **开源与第三方收费说明**
 >
-> 亚马逊图片工作台是免费开源软件，请以本项目的 [GitHub 仓库](https://github.com/Ali-Aria/amazon-image-studio) 作为官方核验入口。本项目采用 MIT License，允许商业使用、分发和售卖软件副本，但必须保留版权与许可声明。
+> 亚马逊图片工作台是免费开源软件，请以本项目的 [GitHub 仓库](https://github.com/yangzhen0415/mark-amazon-image-studio) 作为当前定制版核验入口。本项目采用 MIT License，允许商业使用、分发和售卖软件副本，但必须保留版权与许可声明。
 >
-> 第三方收取的费用只代表其自行提供的部署、定制、培训或技术支持，不代表购买了本软件、获得独家授权，也不代表 Ali-Aria 官方服务。请警惕“官方付费版”“独家授权版”“买断后永久官方更新”等误导性表述。
+> 第三方收取的费用只代表其自行提供的部署、定制、培训或技术支持，不代表购买了本软件、获得独家授权，也不代表原项目或当前定制版的官方买断服务。请警惕“官方付费版”“独家授权版”“买断后永久官方更新”等误导性表述。
 >
-> 如发现冒充官方、删除署名或隐瞒开源来源的售卖行为，请通过 [GitHub Issues](https://github.com/Ali-Aria/amazon-image-studio/issues) 反馈。
+> 如发现冒充官方、删除署名或隐瞒开源来源的售卖行为，请通过 [GitHub Issues](https://github.com/yangzhen0415/mark-amazon-image-studio/issues) 反馈。
 
 本仓库公开的是前端应用源码、Amazon 图片策划逻辑、Prompt 模板、知识文档、本地启动脚本和部署配置，采用 [MIT License](LICENSE) 发布。
 
@@ -179,7 +179,7 @@
 
 ## 在线体验
 
-- 体验地址：[https://ali-aria.github.io/amazon-image-studio/](https://ali-aria.github.io/amazon-image-studio/)
+- 体验地址：[https://yangzhen0415.github.io/mark-amazon-image-studio/](https://yangzhen0415.github.io/mark-amazon-image-studio/)
 - 打开在线体验不需要 Codex；Codex 只是一种可选的本地安装方式。
 - 在线体验不会内置 API Key；生成图片和 AI 策划都需要在右上角设置中填写你自己的 OpenAI 或兼容接口 Key。
 - API Key 保存在当前浏览器本地，不会提交到仓库；如果线上页面加载异常，也可以按下面的“启动项目”在本地运行。
@@ -187,7 +187,7 @@
 
 ## 核心功能
 
-- AI 策划 Listing 图片：支持美国、日本、德国、法国、意大利和西班牙目标站点；粘贴标题、五点描述或产品说明后，默认生成 `MAIN + PT01-PT06` 共 7 张图片，也可自定义为 `7-12` 张。
+- AI 策划 Listing 图片：支持美国、日本、德国、法国、意大利、西班牙和 Ozon 俄语目标站点；粘贴标题、五点描述或产品说明后，默认生成 `MAIN + PT01-PT06` 共 7 张图片，也可自定义为 `7-12` 张。
 - AI 策划 A+ 图片：支持 `普通A+ / 标准A+ / 高级A+ / 手机A+` 四套 A+ 模块编排，策划前可按行添加或删除同尺寸模块。
 - 参考图上传：支持上传产品实拍图、包装图、结构图，生成时会作为参考图一起发送。
 - 逐张生成：在右侧选择 `MAIN`、`PT01`、`A+L01`、`A+S01`、`A+P01`、`A+M01` 等图片位后，当前 Prompt Preview 会切换到对应提示词。
@@ -225,14 +225,14 @@ npm --version
 如果你要把项目发给别人使用，最简单的方式是直接发 GitHub 仓库链接：
 
 ```text
-https://github.com/Ali-Aria/amazon-image-studio
+https://github.com/yangzhen0415/mark-amazon-image-studio
 ```
 
 对方可以在 Codex、Claude Code、Claw Code 或其它 AI 编程工具里粘贴下面这段话：
 
 ```text
 请把这个 GitHub 项目安装到我的本地电脑并启动：
-https://github.com/Ali-Aria/amazon-image-studio
+https://github.com/yangzhen0415/mark-amazon-image-studio
 
 要求：
 1. 先确认本机已经安装 Node.js 20 LTS 或更新版本和 npm。
@@ -250,8 +250,8 @@ https://github.com/Ali-Aria/amazon-image-studio
 先把仓库下载到本地：
 
 ```powershell
-git clone https://github.com/Ali-Aria/amazon-image-studio.git
-cd amazon-image-studio
+git clone https://github.com/yangzhen0415/mark-amazon-image-studio.git
+cd mark-amazon-image-studio
 ```
 
 如果你已经下载了 ZIP 或复制了源码文件夹，直接在终端进入你自己的项目目录即可。
@@ -514,12 +514,12 @@ Node.js version: 20
 2. `Build and deployment` 的 `Source` 选择 `GitHub Actions`。
 3. 推送到 `main` 后会自动构建并部署。也可以在 `Actions` 页面手动运行 `Deploy to GitHub Pages`，或推送 `v*` 格式的 tag，例如 `v0.1.0`。
 
-项目的 Vite `base` 已设置为 `./`，可以部署在 `https://<username>.github.io/amazon-image-studio/` 这类子路径下。
+项目的 Vite `base` 已设置为 `./`，可以部署在 `https://<username>.github.io/mark-amazon-image-studio/` 这类子路径下。
 
 当前仓库的 GitHub Pages 体验地址：
 
 ```text
-https://ali-aria.github.io/amazon-image-studio/
+https://yangzhen0415.github.io/mark-amazon-image-studio/
 ```
 
 ### Cloudflare Pages

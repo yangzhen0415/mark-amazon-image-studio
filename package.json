@@ -1,16 +1,16 @@
 {
   "name": "amazon-image-studio",
-  "description": "Amazon Listing image planning and generation workspace.",
+  "description": "Amazon and Ozon listing image planning, generation, and copywriting workbench.",
   "private": true,
   "version": "0.2.0",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Ali-Aria/amazon-image-studio.git"
+    "url": "https://github.com/yangzhen0415/mark-amazon-image-studio.git"
   },
-  "homepage": "https://ali-aria.github.io/amazon-image-studio/",
+  "homepage": "https://yangzhen0415.github.io/mark-amazon-image-studio/",
   "bugs": {
-    "url": "https://github.com/Ali-Aria/amazon-image-studio/issues"
+    "url": "https://github.com/yangzhen0415/mark-amazon-image-studio/issues"
   },
   "type": "module",
   "scripts": {
