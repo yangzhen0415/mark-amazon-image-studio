@@ -339,6 +339,14 @@ export interface AmazonPlannerSessionStyleImage {
 
 export type AmazonStyleDensityMode = 'rich' | 'minimal'
 
+export interface AmazonPlannerVariantSet {
+  id: string
+  label: string
+  referenceImageIds: string[]
+  createdAt: number
+  updatedAt: number
+}
+
 export interface StyleReferenceEditState {
   title: string
   palette: string[]
@@ -370,6 +378,8 @@ export interface AmazonPlannerSession {
   listingText: string
   listingCopyMarkdown?: string
   referenceImageIds: string[]
+  variantSets?: AmazonPlannerVariantSet[]
+  activeVariantSetId?: string | null
   draft: AmazonPlannerSessionDraft
   seriesStyleGuides: {
     listing: string

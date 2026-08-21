@@ -4,17 +4,18 @@
 
 它适合用来把产品标题、五点描述、卖点文案和参考图，整理成 Amazon Listing 图片或 A+ Content 图片策划，并逐张生成图片。
 
+项目仓库：[Ali-Aria/amazon-image-studio](https://github.com/Ali-Aria/amazon-image-studio)
 
 ## 开源说明
 
 > [!IMPORTANT]
 > **开源与第三方收费说明**
 >
-> 亚马逊图片工作台是免费开源软件，请以本项目的 [GitHub 仓库]([https://github.com/Ali-Aria/amazon-image-studio](https://github.com/yangzhen0415/mark-amazon-image-studio)) 作为官方核验入口。本项目采用 MIT License，允许商业使用、分发和售卖软件副本，但必须保留版权与许可声明。
+> 亚马逊图片工作台是免费开源软件，请以本项目的 [GitHub 仓库](https://github.com/Ali-Aria/amazon-image-studio) 作为官方核验入口。本项目采用 MIT License，允许商业使用、分发和售卖软件副本，但必须保留版权与许可声明。
 >
-> 第三方收取的费用只代表其自行提供的部署、定制、培训或技术支持，不代表购买了本软件、获得独家授权，也不代表 mark-amazon 官方服务。请警惕“官方付费版”“独家授权版”“买断后永久官方更新”等误导性表述。
+> 第三方收取的费用只代表其自行提供的部署、定制、培训或技术支持，不代表购买了本软件、获得独家授权，也不代表 Ali-Aria 官方服务。请警惕“官方付费版”“独家授权版”“买断后永久官方更新”等误导性表述。
 >
-> 如发现冒充官方、删除署名或隐瞒开源来源的售卖行为，请通过 [https://github.com/yangzhen0415/mark-amazon-image-studio) 反馈。
+> 如发现冒充官方、删除署名或隐瞒开源来源的售卖行为，请通过 [GitHub Issues](https://github.com/Ali-Aria/amazon-image-studio/issues) 反馈。
 
 本仓库公开的是前端应用源码、Amazon 图片策划逻辑、Prompt 模板、知识文档、本地启动脚本和部署配置，采用 [MIT License](LICENSE) 发布。
 
@@ -38,7 +39,9 @@
 - 放宽本地 API 代理匹配：`https://app.yylx.io` 与 `https://app.yylx.io/v1` 会按同一域名自动走代理，降低反代 URL 填写差异导致的 `Failed to fetch`。
 - OpenAI 兼容生图接口和自定义服务商返回图片 URL 时，若浏览器跨域下载失败，会自动使用本地 `/image-proxy/` 取回图片；图片代理白名单补充 OpenAI 常见图片域、Blob 存储域和 `app.yylx.io`。
 - 图片工作台保持当前页面状态，切换 Listing 策划/图片编辑后不再中断正在进行的 AI 策划；图片提示词、草稿和策划结果会保存在本地浏览器。
+- 图片工作台新增“多变体套图”：可把当前商品角度参考图保存为变体组，后续套用不同变体时保留同一套 Listing / A+ 策划提示词，只替换参考图。
 - API 配置增强：切换服务商时保留同 URL/同服务商的 Key；图片生成和 AI 策划配置继续分离，但可复用同一 URL/Key。
+- 操作指南底部更新为 `@yangzhen0415`，新增可选择复制的协助联系方式：`Mark_AmazonAi` / `190-404-55029`。
 - 提交：`62a2469`、`7853f82`、`9298ef3`、`07a18f2`、`b9a6198`、`a628855`、`6686710`。
 </details>
 

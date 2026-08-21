@@ -65,7 +65,7 @@ import {
   sanitizeStyleReferenceEditState,
 } from '../lib/styleReferences'
 import { DEFAULT_PARAMS } from '../types'
-import type { AmazonPlannerSession, CustomStyleReference, StyleReferenceEditState } from '../types'
+import type { AmazonPlannerSession, AmazonPlannerVariantSet, CustomStyleReference, StyleReferenceEditState } from '../types'
 import StyleReferenceEditorModal from './StyleReferenceEditorModal'
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, CopyIcon, EditIcon, EyeIcon, HistoryIcon, PhotoIcon, PlusIcon, RefreshIcon, TrashIcon } from './icons'
 
@@ -143,6 +143,8 @@ type AmazonWorkbenchDraftSnapshot = {
   listingText: string
   listingCopyMarkdown: string
   inputImageIds: string[]
+  variantSets: AmazonPlannerVariantSet[]
+  activeVariantSetId: string | null
   draft: AmazonPlannerSession['draft']
   seriesStyleGuides: { listing: string; aplus: string }
   imagePlans: AmazonPlannerSession['imagePlans']
@@ -160,6 +162,10 @@ function createPlannerSessionId() {
 
 function createCustomStyleReferenceId() {
   return `custom-style-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function createVariantSetId() {
+  return `variant-set-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function normalizeHistoryTitle(value: string) {
@@ -245,6 +251,28 @@ function fromSessionDraft(draft: AmazonPlannerSession['draft']): AmazonPromptDra
 
 function sortPlannerSessions(sessions: AmazonPlannerSession[]) {
   return [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, PLANNER_HISTORY_LIMIT)
+}
+
+function normalizeVariantSets(value: unknown): AmazonPlannerVariantSet[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item, index): AmazonPlannerVariantSet | null => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+      const record = item as Partial<AmazonPlannerVariantSet>
+      const referenceImageIds = Array.isArray(record.referenceImageIds)
+        ? Array.from(new Set(record.referenceImageIds.filter((id): id is string => typeof id === 'string' && Boolean(id.trim()))))
+        : []
+      if (!referenceImageIds.length) return null
+      const now = Date.now()
+      return {
+        id: typeof record.id === 'string' && record.id.trim() ? record.id : createVariantSetId(),
+        label: typeof record.label === 'string' && record.label.trim() ? record.label.trim() : `变体 ${index + 1}`,
+        referenceImageIds,
+        createdAt: typeof record.createdAt === 'number' ? record.createdAt : now,
+        updatedAt: typeof record.updatedAt === 'number' ? record.updatedAt : now,
+      }
+    })
+    .filter((item): item is AmazonPlannerVariantSet => item != null)
 }
 
 function getActionStepClass(status: WorkflowStepStatus) {
@@ -483,6 +511,8 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
   const [selectedAPlusPlanIndex, setSelectedAPlusPlanIndex] = useState<number | null>(null)
   const [plannerSessions, setPlannerSessions] = useState<AmazonPlannerSession[]>([])
   const [currentPlannerSessionId, setCurrentPlannerSessionId] = useState<string | null>(null)
+  const [variantSets, setVariantSets] = useState<AmazonPlannerVariantSet[]>([])
+  const [activeVariantSetId, setActiveVariantSetId] = useState<string | null>(null)
   const [isWorkbenchDraftReady, setIsWorkbenchDraftReady] = useState(false)
   const [showPlannerHistory, setShowPlannerHistory] = useState(false)
   const [isPlanning, setIsPlanning] = useState(false)
@@ -710,6 +740,8 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
             listingText: latestSession.listingText,
             listingCopyMarkdown: latestSession.listingCopyMarkdown ?? '',
             inputImageIds: latestSession.referenceImageIds,
+            variantSets: normalizeVariantSets(latestSession.variantSets),
+            activeVariantSetId: latestSession.activeVariantSetId ?? null,
             draft: latestSession.draft,
             seriesStyleGuides: latestSession.seriesStyleGuides,
             imagePlans: latestSession.imagePlans,
@@ -741,6 +773,9 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
         setListingText(typeof snapshot.listingText === 'string' ? snapshot.listingText : '')
         setListingCopyMarkdown(typeof snapshot.listingCopyMarkdown === 'string' ? snapshot.listingCopyMarkdown : '')
         setInputImages(restoredImages.filter((image): image is { id: string; dataUrl: string } => Boolean(image)))
+        const restoredVariantSets = normalizeVariantSets(snapshot.variantSets)
+        setVariantSets(restoredVariantSets)
+        setActiveVariantSetId(restoredVariantSets.some((set) => set.id === snapshot.activeVariantSetId) ? snapshot.activeVariantSetId ?? null : null)
         setDraft(snapshot.draft ? fromSessionDraft(snapshot.draft) : DEFAULT_AMAZON_PROMPT_DRAFT)
         setSeriesStyleGuides(snapshot.seriesStyleGuides ?? { listing: '', aplus: '' })
         setImagePlans(Array.isArray(snapshot.imagePlans) ? snapshot.imagePlans as AmazonImagePlan[] : [])
@@ -770,6 +805,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
       listingText.trim() ||
       listingCopyMarkdown.trim() ||
       inputImages.length > 0 ||
+      variantSets.length > 0 ||
       imagePlans.length > 0 ||
       aPlusPlans.length > 0 ||
       draft.productTitle.trim(),
@@ -788,6 +824,8 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
       listingText,
       listingCopyMarkdown,
       inputImageIds: inputImages.map((image) => image.id),
+      variantSets,
+      activeVariantSetId,
       draft: toSessionDraft(draft),
       seriesStyleGuides,
       imagePlans,
@@ -810,6 +848,8 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     listingText,
     listingCopyMarkdown,
     inputImages,
+    variantSets,
+    activeVariantSetId,
     draft,
     seriesStyleGuides,
     imagePlans,
@@ -912,6 +952,8 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
       listingText: snapshotListingText,
       listingCopyMarkdown: overrides.listingCopyMarkdown ?? listingCopyMarkdown,
       referenceImageIds: overrides.referenceImageIds ?? inputImages.map((image) => image.id),
+      variantSets: overrides.variantSets ?? variantSets,
+      activeVariantSetId: hasOverride('activeVariantSetId') ? overrides.activeVariantSetId ?? null : activeVariantSetId,
       draft: overrides.draft ?? toSessionDraft(draft),
       seriesStyleGuides: overrides.seriesStyleGuides ?? seriesStyleGuides,
       styleCandidates: overrides.styleCandidates ?? [],
@@ -1615,6 +1657,8 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     setSelectedAPlusPlanIndex(null)
     setPlannerError('')
     setCurrentPlannerSessionId(null)
+    setVariantSets([])
+    setActiveVariantSetId(null)
     setActionProgress({})
     window.localStorage.removeItem(AMAZON_WORKBENCH_DRAFT_KEY)
   }
@@ -1729,6 +1773,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
 
     const restoredAPlusModuleSpecsByType = getSessionAPlusModuleSpecsByType(session)
     const restoredMarketplaceId = getSessionMarketplaceId(session)
+    const restoredVariantSets = normalizeVariantSets(session.variantSets)
     setPlannerMode(session.mode)
     setMarketplaceId(restoredMarketplaceId)
     setAPlusType(session.aPlusType)
@@ -1738,6 +1783,8 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     setListingText(session.listingText)
     setListingCopyMarkdown(session.listingCopyMarkdown ?? '')
     setInputImages(restoredReferences)
+    setVariantSets(restoredVariantSets)
+    setActiveVariantSetId(restoredVariantSets.some((set) => set.id === session.activeVariantSetId) ? session.activeVariantSetId ?? null : null)
     setDraft(fromSessionDraft(session.draft))
     setSeriesStyleGuides(session.seriesStyleGuides)
     setSelectedStylePresetId(restoredStyleReference ? restoredStyleReference.presetId : nextStylePresetId)
@@ -1758,6 +1805,8 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
       marketplaceId: restoredMarketplaceId,
       listingImageCount: getSessionListingImageCount(session),
       aPlusModuleSpecs: getAPlusModuleSpecsForSession(restoredAPlusModuleSpecsByType),
+      variantSets: restoredVariantSets,
+      activeVariantSetId: restoredVariantSets.some((set) => set.id === session.activeVariantSetId) ? session.activeVariantSetId ?? null : null,
       selectedStylePresetId: restoredStyleReference ? restoredStyleReference.presetId : nextStylePresetId,
       selectedStyleReferenceImageId: restoredStyleReference?.imageId ?? null,
       selectedCustomStyleReferenceId: restoredCustomStyleReference?.id ?? null,
@@ -1793,6 +1842,76 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     }
   }
 
+  const saveCurrentReferencesAsVariant = () => {
+    const currentReferenceImageIds = inputImages.map((image) => image.id)
+    if (!currentReferenceImageIds.length) {
+      showToast('请先上传这个变体的参考图', 'error')
+      return
+    }
+
+    const now = Date.now()
+    const existingIndex = activeVariantSetId
+      ? variantSets.findIndex((variant) => variant.id === activeVariantSetId)
+      : -1
+    const nextVariant: AmazonPlannerVariantSet = existingIndex >= 0
+      ? {
+          ...variantSets[existingIndex],
+          referenceImageIds: currentReferenceImageIds,
+          updatedAt: now,
+        }
+      : {
+          id: createVariantSetId(),
+          label: `变体 ${variantSets.length + 1}`,
+          referenceImageIds: currentReferenceImageIds,
+          createdAt: now,
+          updatedAt: now,
+        }
+    const nextVariantSets = existingIndex >= 0
+      ? variantSets.map((variant, index) => index === existingIndex ? nextVariant : variant)
+      : [...variantSets, nextVariant]
+
+    setVariantSets(nextVariantSets)
+    setActiveVariantSetId(nextVariant.id)
+    updateCurrentPlannerSession({
+      referenceImageIds: currentReferenceImageIds,
+      variantSets: nextVariantSets,
+      activeVariantSetId: nextVariant.id,
+    })
+    showToast(existingIndex >= 0 ? `已更新「${nextVariant.label}」参考图` : `已保存「${nextVariant.label}」`, 'success')
+  }
+
+  const applyVariantSet = async (variant: AmazonPlannerVariantSet) => {
+    const restoredImages = []
+    for (const imageId of variant.referenceImageIds.slice(0, inputImageLimit)) {
+      const dataUrl = await ensureImageCached(imageId)
+      if (dataUrl) restoredImages.push({ id: imageId, dataUrl })
+    }
+    if (!restoredImages.length) {
+      showToast(`「${variant.label}」里的参考图已不存在`, 'error')
+      return
+    }
+
+    setInputImages(restoredImages)
+    setActiveVariantSetId(variant.id)
+    updateCurrentPlannerSession({
+      referenceImageIds: restoredImages.map((image) => image.id),
+      activeVariantSetId: variant.id,
+    })
+    showToast(`已套用「${variant.label}」，提示词保持不变`, 'success')
+  }
+
+  const deleteVariantSet = (variantId: string) => {
+    const nextVariantSets = variantSets.filter((variant) => variant.id !== variantId)
+    const nextActiveVariantSetId = activeVariantSetId === variantId ? null : activeVariantSetId
+    setVariantSets(nextVariantSets)
+    setActiveVariantSetId(nextActiveVariantSetId)
+    updateCurrentPlannerSession({
+      variantSets: nextVariantSets,
+      activeVariantSetId: nextActiveVariantSetId,
+    })
+    showToast('变体已删除', 'success')
+  }
+
   const handleFiles = async (files: FileList | File[]) => {
     const accepted = Array.from(files).filter((file) => file.type.startsWith('image/'))
     if (accepted.length === 0) {
@@ -1816,8 +1935,10 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
       }
 
       const added = useStore.getState().inputImages.length - currentCount
+      setActiveVariantSetId(null)
       updateCurrentPlannerSession({
         referenceImageIds: useStore.getState().inputImages.map((image) => image.id),
+        activeVariantSetId: null,
       })
       if (discarded > 0) {
         showToast(
@@ -2168,7 +2289,8 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                     type="button"
                     onClick={() => {
                       clearInputImages()
-                      updateCurrentPlannerSession({ referenceImageIds: [] })
+                      setActiveVariantSetId(null)
+                      updateCurrentPlannerSession({ referenceImageIds: [], activeVariantSetId: null })
                     }}
                     className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-white px-3 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:border-red-400/20 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-400/10"
                   >
@@ -2197,7 +2319,8 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                       onClick={() => {
                         const nextReferenceImageIds = inputImages.filter((_, imageIndex) => imageIndex !== index).map((item) => item.id)
                         removeInputImage(index)
-                        updateCurrentPlannerSession({ referenceImageIds: nextReferenceImageIds })
+                        setActiveVariantSetId(null)
+                        updateCurrentPlannerSession({ referenceImageIds: nextReferenceImageIds, activeVariantSetId: null })
                       }}
                       className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white opacity-100 transition hover:bg-red-500 sm:opacity-0 sm:group-hover:opacity-100"
                       aria-label={`删除参考图 ${index + 1}`}
@@ -2220,6 +2343,69 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                 <span className="mt-1 text-xs text-gray-400">支持多选；这些图会随 Qwen 生图请求发送，最多 3 张</span>
               </button>
             )}
+
+            <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-[hsl(var(--muted)/0.45)] p-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">多变体套图</div>
+                  <div className="mt-0.5 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                    同一套策划提示词不变，只替换当前变体参考图，适合颜色、尺寸、款式相近的产品。
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={saveCurrentReferencesAsVariant}
+                  disabled={inputImages.length === 0}
+                  className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${inputImages.length === 0 ? 'cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-white/[0.05] dark:text-gray-500' : 'bg-gray-900 text-white hover:bg-gray-700 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200'}`}
+                >
+                  <PlusIcon className="h-3.5 w-3.5" />
+                  保存当前为变体
+                </button>
+              </div>
+              {variantSets.length > 0 ? (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {variantSets.map((variant) => {
+                    const isActiveVariant = activeVariantSetId === variant.id
+                    return (
+                      <div key={variant.id} className={`rounded-lg border bg-white p-2 dark:bg-gray-950 ${isActiveVariant ? 'border-blue-300 ring-2 ring-blue-500/15 dark:border-blue-400/40' : 'border-gray-200 dark:border-white/[0.08]'}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
+                              {variant.label}
+                              {isActiveVariant && <span className="ml-1 text-[10px] text-blue-600 dark:text-blue-300">当前</span>}
+                            </div>
+                            <div className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                              {variant.referenceImageIds.length} 张参考图
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => void applyVariantSet(variant)}
+                              className="h-7 rounded-md bg-[hsl(var(--ios-blue-tint))] px-2 text-[11px] font-semibold text-[hsl(var(--primary))] transition hover:bg-blue-100 dark:hover:bg-blue-400/15"
+                            >
+                              套用
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteVariantSet(variant.id)}
+                              className="flex h-7 w-7 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-400/10"
+                              aria-label={`删除 ${variant.label}`}
+                            >
+                              <TrashIcon className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="mt-3 rounded-lg bg-white px-3 py-2 text-[11px] text-gray-500 dark:bg-gray-950 dark:text-gray-400">
+                  先上传某个变体的商品角度图，再保存为变体；之后切换变体时，右侧图片提示词不会变。
+                </div>
+              )}
+            </div>
 
             {atImageLimit && (
               <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
