@@ -110,5 +110,14 @@ export function shouldUseApiProxy(
   if (!isApiProxyAvailable(proxyConfig)) return false
   if (apiProxy || isApiProxyLocked(proxyConfig)) return true
 
-  return Boolean(proxyConfig?.enabled && baseUrl && normalizeBaseUrl(baseUrl) === proxyConfig.target)
+  if (!proxyConfig?.enabled || !baseUrl) return false
+
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl)
+  if (normalizedBaseUrl === proxyConfig.target || normalizedBaseUrl === normalizeBaseUrl(proxyConfig.target)) return true
+
+  try {
+    return new URL(normalizedBaseUrl).origin === new URL(proxyConfig.target).origin
+  } catch {
+    return false
+  }
 }

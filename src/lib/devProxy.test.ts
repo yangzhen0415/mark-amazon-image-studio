@@ -61,6 +61,13 @@ describe('shouldUseApiProxy', () => {
     expect(shouldUseApiProxy(false, proxyConfig, 'http://127.0.0.1:8087/v1')).toBe(true)
   })
 
+  it('automatically uses the dev proxy when the configured API URL shares the proxy origin', () => {
+    expect(shouldUseApiProxy(false, {
+      ...proxyConfig,
+      target: 'https://app.yylx.io',
+    }, 'https://app.yylx.io/v1')).toBe(true)
+  })
+
   it('does not automatically proxy unrelated API URLs', () => {
     expect(shouldUseApiProxy(false, proxyConfig, 'https://api.example.com/v1')).toBe(false)
   })
