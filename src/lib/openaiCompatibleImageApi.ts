@@ -24,6 +24,13 @@ const PROMPT_REWRITE_GUARD_PREFIX = 'Use the following text as the complete prom
 const OPENROUTER_MODALITY_RETRY_RE = /modalit|unsupported.*text|text.*unsupported/i
 const OPENROUTER_1K_PIXEL_BUDGET = 1_572_864
 const OPENROUTER_2K_PIXEL_BUDGET = 4_194_304
+function createResultImageProxy(imageUrl: string) {
+  return {
+    proxyUrl: '/image-proxy/',
+    headers: { 'X-Image-Url': imageUrl },
+  }
+}
+
 const OPENROUTER_STANDARD_ASPECT_RATIOS = [
   '1:1',
   '2:3',
@@ -457,7 +464,12 @@ async function parseImagesApiResponse(payload: ImageApiResponse, mime: string, s
       }
 
       if (isHttpUrl(item.url) || isDataUrl(item.url)) {
-        images.push(await fetchImageUrlAsDataUrl(item.url, mime, signal))
+        images.push(await fetchImageUrlAsDataUrl(
+          item.url,
+          mime,
+          signal,
+          isHttpUrl(item.url) ? createResultImageProxy(item.url) : undefined,
+        ))
         revisedPrompts.push(typeof item.revised_prompt === 'string' ? item.revised_prompt : undefined)
       }
     }
@@ -1029,7 +1041,12 @@ async function extractCustomImages(payload: unknown, result: CustomProviderResul
       }
     }
     for (const url of imageUrls) {
-      images.push(await fetchImageUrlAsDataUrl(url, mime, signal))
+      images.push(await fetchImageUrlAsDataUrl(
+        url,
+        mime,
+        signal,
+        isHttpUrl(url) ? createResultImageProxy(url) : undefined,
+      ))
     }
   } catch (err) {
     if (rawImageUrls.length > 0 && err instanceof Error) {

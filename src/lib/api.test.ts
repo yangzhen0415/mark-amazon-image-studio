@@ -315,6 +315,36 @@ describe('callImageApi', () => {
     expect(result.revisedPrompts).toEqual(['移除靴子'])
   })
 
+  it('falls back to the same-origin image proxy when OpenAI-compatible result URL is blocked by CORS', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: [{ url: 'https://oaidalleapiprodscus.blob.core.windows.net/private/result.png' }],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(new Response(new Blob(['image'], { type: 'image/png' }), {
+        status: 200,
+        headers: { 'X-Image-Proxy': '1', 'Content-Type': 'image/png' },
+      }))
+
+    const result = await callImageApi({
+      settings: { ...DEFAULT_SETTINGS, apiKey: 'test-key' },
+      prompt: 'prompt',
+      params: { ...DEFAULT_PARAMS },
+      inputImageDataUrls: [],
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock.mock.calls[1][0]).toBe('https://oaidalleapiprodscus.blob.core.windows.net/private/result.png')
+    expect(fetchMock.mock.calls[2][0]).toBe('/image-proxy/')
+    expect((fetchMock.mock.calls[2][1] as RequestInit).headers).toEqual({
+      'X-Image-Url': 'https://oaidalleapiprodscus.blob.core.windows.net/private/result.png',
+    })
+    expect(result.images[0]).toMatch(/^data:image\/png;base64,/)
+  })
+
   it('does not synthesize actual quality in Codex CLI mode when the API omits it', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
       output_format: 'jpeg',
