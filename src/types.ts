@@ -262,7 +262,7 @@ export interface TaskRecord {
     productTitle?: string
     workflow?: TaskWorkflow
     amazonSlot?: string
-    aPlusType?: 'standard' | 'standard-large' | 'premium' | 'mobile'
+    aPlusType?: 'standard' | 'standard-large' | 'premium' | 'mobile' | 'ozon-detail'
     marketplaceId?: AmazonMarketplaceId
     styleReferenceImageId?: string
   }
@@ -322,7 +322,7 @@ export interface AmazonPlannerSessionAPlusPlan {
 }
 
 export interface AmazonPlannerSessionAPlusModuleSpec {
-  contentType: 'standard' | 'standard-large' | 'premium' | 'mobile' | 'optional'
+  contentType: 'standard' | 'standard-large' | 'premium' | 'mobile' | 'ozon-detail' | 'optional'
   slot: string
   label: string
   displayLabel: string
@@ -371,10 +371,10 @@ export interface AmazonPlannerSession {
   title: string
   mode: 'listing' | 'aplus'
   marketplaceId?: AmazonMarketplaceId
-  aPlusType: 'standard' | 'standard-large' | 'premium' | 'mobile'
+  aPlusType: 'standard' | 'standard-large' | 'premium' | 'mobile' | 'ozon-detail'
   resolution: '1k' | '2k' | '4k'
   listingImageCount?: number
-  aPlusModuleSpecs?: Partial<Record<'standard' | 'standard-large' | 'premium' | 'mobile', AmazonPlannerSessionAPlusModuleSpec[]>>
+  aPlusModuleSpecs?: Partial<Record<'standard' | 'standard-large' | 'premium' | 'mobile' | 'ozon-detail', AmazonPlannerSessionAPlusModuleSpec[]>>
   listingText: string
   listingCopyMarkdown?: string
   referenceImageIds: string[]

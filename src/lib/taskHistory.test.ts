@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PARAMS, type TaskRecord } from '../types'
+import { DEFAULT_AMAZON_MARKETPLACE_ID } from './amazonMarketplaces'
 import {
   UNCATEGORIZED_PRODUCT_FILTER,
   getTaskHistoryCategory,
@@ -38,7 +39,7 @@ describe('task history categories', () => {
       productTitle: 'Large Folding Umbrella',
       workflow: 'amazon-listing',
       amazonSlot: 'MAIN',
-      marketplaceId: 'us',
+      marketplaceId: DEFAULT_AMAZON_MARKETPLACE_ID,
       aspect: 'square',
     })
   })
@@ -60,7 +61,7 @@ describe('task history categories', () => {
       workflow: 'amazon-aplus',
       amazonSlot: 'A+S01',
       aPlusType: 'standard',
-      marketplaceId: 'us',
+      marketplaceId: DEFAULT_AMAZON_MARKETPLACE_ID,
       aspect: 'landscape',
     })
   })

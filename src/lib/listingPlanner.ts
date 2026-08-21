@@ -5,7 +5,7 @@ import { getAmazonMarketplace, type AmazonMarketplaceId } from './amazonMarketpl
 
 export type AmazonPlannerMode = 'listing' | 'aplus'
 export type { AmazonStyleDensityMode } from '../types'
-export type APlusContentType = 'standard' | 'standard-large' | 'premium' | 'mobile'
+export type APlusContentType = 'standard' | 'standard-large' | 'premium' | 'mobile' | 'ozon-detail'
 export type APlusModuleKind =
   | 'header-banner'
   | 'single-image'
@@ -16,7 +16,8 @@ export type APlusModuleKind =
   | 'logo'
   | 'comparison-thumbnail'
 
-export const A_PLUS_CONTENT_TYPES: APlusContentType[] = ['standard-large', 'standard', 'premium', 'mobile']
+export const A_PLUS_CONTENT_TYPES: APlusContentType[] = ['standard-large', 'standard', 'premium', 'mobile', 'ozon-detail']
+export const AMAZON_A_PLUS_CONTENT_TYPES: APlusContentType[] = ['standard-large', 'standard', 'premium', 'mobile']
 export const MIN_A_PLUS_MODULE_COUNT = 1
 export const MAX_A_PLUS_MODULE_COUNT = 12
 
@@ -182,6 +183,17 @@ export const MOBILE_A_PLUS_MODULE_SPECS: AmazonAPlusModuleSpec[] = [
     objective: '用移动端友好的 4:3 图片讲清一个关键卖点、细节证据或使用场景。',
   })),
 ]
+
+export const OZON_DETAIL_IMAGE_SPECS: AmazonAPlusModuleSpec[] = Array.from({ length: 7 }, (_, index) => ({
+  contentType: 'ozon-detail' as const,
+  slot: `OZON${String(index + 1).padStart(2, '0')}`,
+  label: `Ozon Detail Image ${index + 1}`,
+  displayLabel: `详情图 ${index + 1}`,
+  moduleType: 'feature-image' as const,
+  uploadWidth: 750,
+  uploadHeight: 1000,
+  objective: '用 750x1000 竖版俄语详情图讲清一个产品卖点、场景、尺寸、材质、结构或信任点。',
+}))
 
 export const OPTIONAL_A_PLUS_MODULE_SPECS: AmazonAPlusModuleSpec[] = [
   {
@@ -356,6 +368,8 @@ function getAPlusGenerationSizeFromDimensions(width: number, height: number, tie
 
 function getAPlusModuleSlotPrefix(type: APlusContentType): string {
   switch (type) {
+    case 'ozon-detail':
+      return 'OZON'
     case 'premium':
       return 'A+P'
     case 'mobile':
@@ -372,6 +386,13 @@ function isAPlusModuleKind(value: unknown): value is APlusModuleKind {
 }
 
 function getAPlusModuleTypeText(type: APlusContentType, moduleType: APlusModuleKind, ordinal: number) {
+  if (type === 'ozon-detail') {
+    return {
+      label: `Ozon Detail Image ${ordinal}`,
+      displayLabel: `详情图 ${ordinal}`,
+    }
+  }
+
   const suffix = ordinal > 1 || !['header-banner', 'hero-banner', 'logo', 'comparison-thumbnail'].includes(moduleType)
     ? ` ${ordinal}`
     : ''
@@ -519,6 +540,8 @@ export function areAPlusModuleSpecsEquivalent(
 
 export function getAPlusModuleSpecs(type: APlusContentType): AmazonAPlusModuleSpec[] {
   switch (type) {
+    case 'ozon-detail':
+      return OZON_DETAIL_IMAGE_SPECS.map(cloneAPlusModuleSpec)
     case 'premium':
       return PREMIUM_A_PLUS_MODULE_SPECS.map(cloneAPlusModuleSpec)
     case 'mobile':
@@ -531,12 +554,14 @@ export function getAPlusModuleSpecs(type: APlusContentType): AmazonAPlusModuleSp
 }
 
 export function findAPlusModuleSpec(slot: string): AmazonAPlusModuleSpec | undefined {
-  return [...STANDARD_A_PLUS_MODULE_SPECS, ...STANDARD_LARGE_A_PLUS_MODULE_SPECS, ...PREMIUM_A_PLUS_MODULE_SPECS, ...MOBILE_A_PLUS_MODULE_SPECS, ...OPTIONAL_A_PLUS_MODULE_SPECS]
+  return [...STANDARD_A_PLUS_MODULE_SPECS, ...STANDARD_LARGE_A_PLUS_MODULE_SPECS, ...PREMIUM_A_PLUS_MODULE_SPECS, ...MOBILE_A_PLUS_MODULE_SPECS, ...OZON_DETAIL_IMAGE_SPECS, ...OPTIONAL_A_PLUS_MODULE_SPECS]
     .find((spec) => spec.slot === slot)
 }
 
 export function getAPlusContentTypeLabel(type: APlusContentType): string {
   switch (type) {
+    case 'ozon-detail':
+      return 'Ozon详情图'
     case 'premium':
       return '高级A+'
     case 'mobile':
@@ -594,10 +619,12 @@ export function getAPlusModuleUploadSize(spec: Pick<AmazonAPlusModuleSpec, 'uplo
 }
 
 export function getAPlusModuleGenerationSize(spec: Pick<AmazonAPlusModuleSpec, 'uploadWidth' | 'uploadHeight'>, tier: SizeTier): string {
+  if (spec.uploadWidth === 750 && spec.uploadHeight === 1000) return '750x1000'
   return getAPlusGenerationSizeFromDimensions(spec.uploadWidth, spec.uploadHeight, tier)
 }
 
 export function getAPlusPlanGenerationSize(plan: Pick<AmazonAPlusPlan, 'slot' | 'uploadSize'>, tier: SizeTier): string {
+  if (plan.uploadSize === '750x1000') return '750x1000'
   const match = plan.uploadSize.match(/^(\d+)x(\d+)$/)
   if (match) return getAPlusGenerationSizeFromDimensions(Number(match[1]), Number(match[2]), tier)
 

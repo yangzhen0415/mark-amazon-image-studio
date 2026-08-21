@@ -639,6 +639,8 @@ function buildListingPlannerInstructions(baseDraft: AmazonPromptDraft, listingIm
 
 function getAPlusPlannerTypeName(aPlusType: APlusContentType) {
   switch (aPlusType) {
+    case 'ozon-detail':
+      return 'Ozon Russian 750x1000 detail image set'
     case 'premium':
       return 'Premium A+ Content'
     case 'mobile':
@@ -653,21 +655,34 @@ function getAPlusPlannerTypeName(aPlusType: APlusContentType) {
 function buildAPlusPlannerInstructions(baseDraft: AmazonPromptDraft, aPlusType: APlusContentType, specs: AmazonAPlusModuleSpec[], marketplaceId?: AmazonMarketplaceId) {
   const typeLabel = getAPlusPlannerTypeName(aPlusType)
   const marketplace = getAmazonMarketplace(marketplaceId)
+  const isOzon = marketplace.id === 'ozon' || aPlusType === 'ozon-detail'
   const mobileGuidance = aPlusType === 'mobile'
     ? `For Mobile A+ modules, design every 600x450 image for compact mobile screens: one clear message per module, large product evidence, short mobile-readable ${marketplace.onImageCopyLanguage} copy, and no dense multi-column layouts.`
     : ''
   return [
-    'You are an Amazon A+ Content image-planning agent. The user provides listing copy, optional brand notes, and optional product reference images.',
+    isOzon
+      ? 'You are an Ozon.ru Russian detail-image planning agent. The user provides listing copy, optional brand notes, and optional product reference images.'
+      : 'You are an Amazon A+ Content image-planning agent. The user provides listing copy, optional brand notes, and optional product reference images.',
     buildMarketplaceInstructionBlock(marketplaceId),
-    `Create a ${typeLabel} image module plan. Do not generate images. Only return JSON matching the schema.`,
-    `Return exactly ${specs.length} modules in this order: ${specs.map((spec) => `${spec.slot} ${spec.label} ${getAPlusModuleUploadSize(spec)}px`).join('; ')}.`,
-    'The application only fixes the module order, module type, upload size, and generation size. You must decide the strategy, composition, copy approach, visual treatment, prompt content, and negative prompt content.',
-    'Use the Amazon A+ reference material below to improve compliance judgment. It is not a fixed module creative framework, and it must not replace the product facts from the listing and reference images.',
-    formatAmazonAPlusReferenceMaterial(marketplaceId),
+    `Create a ${typeLabel} image plan. Do not generate images. Only return JSON matching the schema.`,
+    isOzon
+      ? `Return exactly ${specs.length} Ozon detail images in this order: ${specs.map((spec) => `${spec.slot} ${spec.label} ${getAPlusModuleUploadSize(spec)}px`).join('; ')}. Every image must be planned as a vertical 750x1000 Russian marketplace image.`
+      : `Return exactly ${specs.length} modules in this order: ${specs.map((spec) => `${spec.slot} ${spec.label} ${getAPlusModuleUploadSize(spec)}px`).join('; ')}.`,
+    isOzon
+      ? 'The application fixes the Ozon detail image order and 750x1000 size. You must decide the selling angle, composition, Russian visible copy, product evidence, prompt content, and negative prompt content.'
+      : 'The application only fixes the module order, module type, upload size, and generation size. You must decide the strategy, composition, copy approach, visual treatment, prompt content, and negative prompt content.',
+    isOzon
+      ? 'Use general marketplace image compliance judgment: no fake badges, unsupported claims, fake certification, prices, QR codes, contact details, misleading size/function claims, or invented product facts.'
+      : 'Use the Amazon A+ reference material below to improve compliance judgment. It is not a fixed module creative framework, and it must not replace the product facts from the listing and reference images.',
+    isOzon ? '' : formatAmazonAPlusReferenceMaterial(marketplaceId),
     PRODUCT_REFERENCE_FACTS_ONLY_PLANNER_GUIDE,
-    'For each module, write planMarkdown in Simplified Chinese as a detailed agent-style plan similar to a ChatGPT web response, then write a professional English image prompt and English negative prompt.',
-    `Each module prompt should fully plan the finished Amazon image: composition, product evidence, on-image ${marketplace.onImageCopyLanguage} copy when useful, callouts or information areas when useful, visual hierarchy, and rendering style.`,
-    'For A+ information modules, prefer complete information design with clear hierarchy and useful product evidence; lifestyle or brand modules should still have purposeful composition and visible product support.',
+    isOzon
+      ? 'For each Ozon detail image, write planMarkdown in Simplified Chinese as a detailed agent-style plan, then write a professional English image prompt and English negative prompt.'
+      : 'For each module, write planMarkdown in Simplified Chinese as a detailed agent-style plan similar to a ChatGPT web response, then write a professional English image prompt and English negative prompt.',
+    `Each ${isOzon ? 'detail image' : 'module'} prompt should fully plan the finished ${isOzon ? 'Ozon' : 'Amazon'} image: composition, product evidence, on-image ${marketplace.onImageCopyLanguage} copy when useful, callouts or information areas when useful, visual hierarchy, and rendering style.`,
+    isOzon
+      ? 'For Ozon detail images, use clear vertical information design, strong product evidence, concise Russian visible copy, and mobile-readable hierarchy.'
+      : 'For A+ information modules, prefer complete information design with clear hierarchy and useful product evidence; lifestyle or brand modules should still have purposeful composition and visible product support.',
     mobileGuidance,
     baseDraft.brand
       ? `Known brand/model: ${baseDraft.brand}. For header-banner and hero-banner modules, naturally include this real brand/model as a small brand line, headline prefix, or subline when it improves the composition. For brand-story modules, use this brand/model to frame the brand tone or promise only when supported by the provided listing or brand notes.`
@@ -675,7 +690,9 @@ function buildAPlusPlannerInstructions(baseDraft: AmazonPromptDraft, aPlusType: 
     'Use brand names as text only unless the user provides a real logo reference image. Do not invent logo artwork, standalone trademark/copyright symbols, brand history, authorization claims, websites, contact details, or external links.',
     'Return one seriesStyleGuide string in English for cross-module product consistency and factual visual continuity. Keep it style-neutral and do not use it to choose the final color palette, typography, background mood, lighting mood, or decorative style.',
     'Do not create, request, or describe separate style reference board images. The application uses built-in preset style reference boards.',
-    `For modules that need external A+ text outside the image, write textTitle and textBody in natural ${marketplace.copyLanguage}. Otherwise return empty strings.`,
+    isOzon
+      ? `For optional external detail text outside the image, write textTitle and textBody in natural ${marketplace.copyLanguage}. Otherwise return empty strings.`
+      : `For modules that need external A+ text outside the image, write textTitle and textBody in natural ${marketplace.copyLanguage}. Otherwise return empty strings.`,
     buildFieldLanguageRules(marketplaceId, { includeAPlusExternalText: true }),
     baseDraft.category ? `Known category: ${baseDraft.category}` : '',
   ].filter(Boolean).join('\n')
@@ -733,11 +750,16 @@ function buildPlannerInputText(
   const marketplace = getAmazonMarketplace(options.marketplaceId)
   if (mode === 'aplus') {
     const specs = normalizeAPlusModuleSpecs(aPlusType, options.aPlusModuleSpecs)
+    const isOzon = marketplace.id === 'ozon' || aPlusType === 'ozon-detail'
     return [
-      `Parse this ${marketplace.domain} listing copy and produce the ${getAPlusContentTypeLabel(aPlusType)} module plan for ${marketplace.label}.`,
+      isOzon
+        ? `Parse this ${marketplace.domain} listing copy/product material and produce the ${specs.length}-image Ozon detail image plan for ${marketplace.label}.`
+        : `Parse this ${marketplace.domain} listing copy and produce the ${getAPlusContentTypeLabel(aPlusType)} module plan for ${marketplace.label}.`,
       'Use the title and bullet points from the pasted text. If a field is uncertain, infer conservatively from the listing.',
       `Target marketplace language for visible customer-facing copy: ${marketplace.copyLanguage}.`,
-      `Use these A+ modules exactly: ${specs.map((spec) => spec.slot).join(', ')}.`,
+      isOzon
+        ? `Use these Ozon detail image slots exactly: ${specs.map((spec) => `${spec.slot} 750x1000`).join(', ')}.`
+        : `Use these A+ modules exactly: ${specs.map((spec) => spec.slot).join(', ')}.`,
       referenceImageInstruction,
       userProductFacts,
       '',
@@ -797,10 +819,11 @@ function buildChatPlannerSchemaGuide(
   const marketplace = getAmazonMarketplace(options.marketplaceId)
   if (mode === 'aplus') {
     const specs = normalizeAPlusModuleSpecs(aPlusType, options.aPlusModuleSpecs)
+    const isOzon = marketplace.id === 'ozon' || aPlusType === 'ozon-detail'
     return [
       `Return JSON with: ${productFields}, sellingPoints string[], ${styleFields}, aPlusPlans array.`,
       `aPlusPlans must contain exactly ${specs.length} items in this order: ${specs.map((spec) => spec.slot).join(', ')}.`,
-      'Each aPlusPlans item must include: slot, label, moduleType, planMarkdown, textTitle, textBody, prompt, negativePrompt.',
+      `Each aPlusPlans item represents one ${isOzon ? 'Ozon 750x1000 detail image' : 'A+ module'} and must include: slot, label, moduleType, planMarkdown, textTitle, textBody, prompt, negativePrompt.`,
       `textTitle/textBody and visible on-image copy must use natural ${marketplace.copyLanguage} for ${marketplace.domain}; prompt and negativePrompt should remain English.`,
     ].join('\n')
   }

@@ -8,6 +8,7 @@ import {
 } from '../lib/amazonPrompt'
 import {
   A_PLUS_CONTENT_TYPES,
+  AMAZON_A_PLUS_CONTENT_TYPES,
   buildAmazonAPlusPlanPrompt,
   buildAmazonPlanPrompt,
   DEFAULT_LISTING_IMAGE_COUNT,
@@ -380,6 +381,7 @@ function getAmazonAPlusComplianceChecks(
   referenceImageCount: number,
   hasStyleReference: boolean,
 ): Array<{ label: string; status: ComplianceStatus; detail: string }> {
+  const isOzon = marketplaceId === 'ozon'
   return [
     {
       label: '目标站点',
@@ -392,12 +394,12 @@ function getAmazonAPlusComplianceChecks(
       detail: draft.productTitle.trim() ? '已填写' : '需要填写准确商品名',
     },
     {
-      label: 'A+ 类型',
+      label: isOzon ? '详情图类型' : 'A+ 类型',
       status: 'ready',
-      detail: `${getAPlusContentTypeLabel(aPlusType)} A+ 编排`,
+      detail: isOzon ? 'Ozon 详情图 7 张' : `${getAPlusContentTypeLabel(aPlusType)} A+ 编排`,
     },
     {
-      label: 'A+ 尺寸',
+      label: isOzon ? '详情图尺寸' : 'A+ 尺寸',
       status: plan ? 'ready' : 'warning',
       detail: plan ? `${plan.generationSize} 生成，上传建议 ${plan.uploadSize}` : '请选择一个 A+ 模块',
     },
@@ -527,19 +529,20 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
   const [mobileActionDock, setMobileActionDock] = useState<MobileActionDock>(null)
   const resolutionTier = resolution === '4k' ? '4K' : resolution === '2k' ? '2K' : '1K'
   const marketplace = useMemo(() => getAmazonMarketplace(marketplaceId), [marketplaceId])
+  const isOzonMarketplace = marketplaceId === 'ozon'
+  const activeAPlusType: APlusContentType = isOzonMarketplace ? 'ozon-detail' : aPlusType
   const listingSlotRange = formatAmazonListingSlotRange(listingImageCount)
   const aPlusSpecs = useMemo(
-    () => normalizeAPlusModuleSpecs(aPlusType, aPlusModuleSpecsByType[aPlusType]),
-    [aPlusModuleSpecsByType, aPlusType],
+    () => normalizeAPlusModuleSpecs(activeAPlusType, aPlusModuleSpecsByType[activeAPlusType]),
+    [aPlusModuleSpecsByType, activeAPlusType],
   )
-  const aPlusDefaultSpecs = useMemo(() => getAPlusModuleSpecs(aPlusType), [aPlusType])
+  const aPlusDefaultSpecs = useMemo(() => getAPlusModuleSpecs(activeAPlusType), [activeAPlusType])
   const aPlusSpecsAreDefault = areAPlusModuleSpecsEquivalent(aPlusSpecs, aPlusDefaultSpecs)
   const aPlusPlansWithSizes = useMemo(() => withAPlusGenerationSizes(aPlusPlans, resolutionTier), [aPlusPlans, resolutionTier])
   const selectedPlan = selectedPlanIndex == null ? null : imagePlans[selectedPlanIndex] ?? null
   const selectedAPlusPlan = selectedAPlusPlanIndex == null ? null : aPlusPlansWithSizes[selectedAPlusPlanIndex] ?? null
   const selectedAPlusText = selectedAPlusPlan ? formatAPlusModuleText(selectedAPlusPlan) : ''
   const customStyleReferences = settings.customStyleReferences ?? []
-  const isOzonMarketplace = marketplaceId === 'ozon'
   const selectedStylePreset = getStylePresetById(selectedStylePresetId)
   const selectedStyleImage = selectedStyleReference
   const selectedStyleLabel = selectedStyleReference?.label ?? selectedStylePreset?.label ?? ''
@@ -604,15 +607,15 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
   const actionPositionLabel = visiblePlanCount > 0 && visiblePlanIndex != null
     ? `${visiblePlanIndex + 1}/${visiblePlanCount}`
     : plannerMode === 'aplus'
-      ? `${aPlusSpecs.length} 个待策划模块`
+      ? isOzonMarketplace ? `${aPlusSpecs.length} 张待策划详情图` : `${aPlusSpecs.length} 个待策划模块`
       : '未选择'
   const currentActionKey = getPlannerActionKey(plannerMode, visiblePlanIndex, actionSlot)
   const currentActionProgress = currentActionKey ? actionProgress[currentActionKey] ?? null : null
   const currentActionFilled = currentActionProgress === 'filled' || currentActionProgress === 'submitted'
   const currentActionSubmitted = currentActionProgress === 'submitted'
-  const actionKindLabel = plannerMode === 'aplus' ? '模块' : isMainListingPlan ? '主图' : '图片'
+  const actionKindLabel = plannerMode === 'aplus' ? isOzonMarketplace ? '详情图' : '模块' : isMainListingPlan ? '主图' : '图片'
   const actionGuidance = !hasSelectedPlan
-    ? plannerMode === 'aplus' ? '先选择一个 A+ 模块' : '先选择一个图片位'
+    ? plannerMode === 'aplus' ? isOzonMarketplace ? '先选择一张详情图' : '先选择一个 A+ 模块' : '先选择一个图片位'
     : currentActionSubmitted
       ? `已提交 ${actionSlot ?? '当前'} ${actionKindLabel}，${canGoNext ? '点击下一张继续' : '已是最后一张'}`
       : currentActionFilled
@@ -665,24 +668,24 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     : !hasPlannerInput
       ? {
           target: 'planner-input',
-          message: plannerMode === 'aplus' ? '下一步：粘贴已生成的 Listing 或 A+ 文案' : `下一步：粘贴 Listing 策划页生成的${marketplace.label} Listing`,
+          message: plannerMode === 'aplus' ? isOzonMarketplace ? '下一步：粘贴已生成的 Ozon Listing 或商品说明' : '下一步：粘贴已生成的 Listing 或 A+ 文案' : `下一步：粘贴 Listing 策划页生成的${marketplace.label} Listing`,
         }
       : !hasPlanOptions
         ? {
             target: 'planner-action',
-            message: plannerMode === 'aplus' ? '下一步：点击 AI策划A+ 生成模块方案' : '下一步：点击 AI策划生成逐张方案',
+            message: plannerMode === 'aplus' ? isOzonMarketplace ? '下一步：点击 AI策划详情图生成 7 张方案' : '下一步：点击 AI策划A+ 生成模块方案' : '下一步：点击 AI策划生成逐张方案',
           }
         : seriesStyleReferenceNeeded && !hasStyleReference
           ? {
               target: 'style-choice',
               message: isLoadingStylePreset
                 ? '正在加载风格参考图'
-                : '下一步：选择一套风格参考，统一附图和 A+ 视觉',
+                : isOzonMarketplace ? '下一步：选择一套风格参考，统一详情图视觉' : '下一步：选择一套风格参考，统一附图和 A+ 视觉',
             }
           : !hasSelectedPlan
             ? {
                 target: 'plan-list',
-                message: plannerMode === 'aplus' ? '下一步：选择要生成的 A+ 模块' : '下一步：选择要生成的图片位',
+                message: plannerMode === 'aplus' ? isOzonMarketplace ? '下一步：选择要生成的详情图' : '下一步：选择要生成的 A+ 模块' : '下一步：选择要生成的图片位',
               }
             : {
                 target: 'action-bar',
@@ -697,7 +700,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
   const planListGuideActive = guideState.target === 'plan-list'
   const actionBarGuideActive = guideState.target === 'action-bar'
   const checks = plannerMode === 'aplus'
-    ? getAmazonAPlusComplianceChecks(draft, selectedAPlusPlan, aPlusType, marketplaceId, inputImages.length, hasStyleReference)
+    ? getAmazonAPlusComplianceChecks(draft, selectedAPlusPlan, activeAPlusType, marketplaceId, inputImages.length, hasStyleReference)
     : getAmazonListingPlannerChecks(draft, targetSize, marketplaceId, inputImages.length, hasStyleReference, styleReferenceRequired)
   const atImageLimit = inputImages.length >= inputImageLimit
 
@@ -948,7 +951,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
       title: overrides.title ?? getPlannerSessionTitle(snapshotDraft, snapshotListingText),
       mode: overrides.mode ?? plannerMode,
       marketplaceId: overrides.marketplaceId ?? marketplaceId,
-      aPlusType: overrides.aPlusType ?? aPlusType,
+      aPlusType: overrides.aPlusType ?? activeAPlusType,
       resolution: overrides.resolution ?? resolution,
       listingImageCount: overrides.listingImageCount ?? listingImageCount,
       aPlusModuleSpecs: hasOverride('aPlusModuleSpecs')
@@ -1007,11 +1010,11 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
 
   const applyPrompt = (options: { requireStyle?: boolean } = {}) => {
     if (plannerMode === 'aplus' && !selectedAPlusPlan) {
-      showToast('请先 AI 策划并选择一个 A+ 模块', 'error')
+      showToast(isOzonMarketplace ? '请先 AI 策划并选择一张详情图' : '请先 AI 策划并选择一个 A+ 模块', 'error')
       return false
     }
     if (!activePrompt.trim()) {
-      showToast(plannerMode === 'aplus' ? '请先 AI 策划并选择一个 A+ 模块' : '请先 AI 策划并选择一个图片位', 'error')
+      showToast(plannerMode === 'aplus' ? isOzonMarketplace ? '请先 AI 策划并选择一张详情图' : '请先 AI 策划并选择一个 A+ 模块' : '请先 AI 策划并选择一个图片位', 'error')
       return false
     }
     const shouldRequireStyle = options.requireStyle && styleReferenceRequired
@@ -1032,7 +1035,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
         productTitle: draft.productTitle.trim(),
         workflow: plannerMode === 'aplus' ? 'amazon-aplus' : 'amazon-listing',
         amazonSlot: plannerMode === 'aplus' ? selectedAPlusPlan?.slot : selectedPlan?.slot,
-        ...(plannerMode === 'aplus' ? { aPlusType } : {}),
+        ...(plannerMode === 'aplus' ? { aPlusType: activeAPlusType } : {}),
         marketplaceId,
         ...(usesStyleReferenceForActivePlan && selectedStyleImage?.imageId ? { styleReferenceImageId: selectedStyleImage.imageId } : {}),
       },
@@ -1046,7 +1049,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     })
     markActionProgress(currentActionKey, 'filled')
     onOpenWorkbench?.()
-    showToast(plannerMode === 'aplus' ? '已填入 A+ 图片提示词' : '已填入亚马逊图片提示词', 'success')
+    showToast(plannerMode === 'aplus' ? isOzonMarketplace ? '已填入 Ozon 详情图提示词' : '已填入 A+ 图片提示词' : '已填入亚马逊图片提示词', 'success')
     return true
   }
 
@@ -1062,11 +1065,11 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
 
   const copyPrompt = async () => {
     if (plannerMode === 'aplus' && !selectedAPlusPlan) {
-      showToast('请先 AI 策划并选择一个 A+ 模块', 'error')
+      showToast(isOzonMarketplace ? '请先 AI 策划并选择一张详情图' : '请先 AI 策划并选择一个 A+ 模块', 'error')
       return
     }
     if (!activePrompt.trim()) {
-      showToast(plannerMode === 'aplus' ? '请先 AI 策划并选择一个 A+ 模块' : '请先 AI 策划并选择一个图片位', 'error')
+      showToast(plannerMode === 'aplus' ? isOzonMarketplace ? '请先 AI 策划并选择一张详情图' : '请先 AI 策划并选择一个 A+ 模块' : '请先 AI 策划并选择一个图片位', 'error')
       return
     }
 
@@ -1094,13 +1097,13 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
 
   const copyAPlusText = async () => {
     if (!selectedAPlusText.trim()) {
-      showToast('当前 A+ 模块没有可复制文案', 'error')
+      showToast(isOzonMarketplace ? '当前详情图没有可复制文案' : '当前 A+ 模块没有可复制文案', 'error')
       return
     }
 
     try {
       await navigator.clipboard.writeText(selectedAPlusText)
-      showToast('A+ 文案已复制', 'success')
+      showToast(isOzonMarketplace ? '详情图文案已复制' : 'A+ 文案已复制', 'success')
     } catch {
       showToast('复制失败，请手动选择文案', 'error')
     }
@@ -1483,7 +1486,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
             mode: plannerMode,
             marketplaceId: currentMarketplaceId,
             listingImageCount,
-            aPlusType,
+            aPlusType: activeAPlusType,
             aPlusModuleSpecs: aPlusSpecs,
             aPlusGenerationTier: resolutionTier,
             signal: controller.signal,
@@ -1500,7 +1503,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
       if (usedModel && usedModel !== plannerProfile.model.trim()) {
         showToast(`当前模型不可用，已自动改用 ${usedModel}`, 'info')
       }
-      applyPlannerResult(result, plannerMode === 'aplus' ? 'A+ AI 策划' : 'AI 策划')
+      applyPlannerResult(result, plannerMode === 'aplus' ? isOzonMarketplace ? 'Ozon 详情图 AI 策划' : 'A+ AI 策划' : 'AI 策划')
     } catch (err) {
       if (controller.signal.aborted || isAbortError(err)) return
       setPlannerError(getPlannerFailureDetail(err))
@@ -1560,10 +1563,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
 
   const changePlannerMode = (mode: AmazonPlannerMode) => {
     if (mode === plannerMode) return
-    if (marketplaceId === 'ozon' && mode === 'aplus') {
-      showToast('Ozon 当前使用 Listing 图流程，A+ 图只适用于 Amazon', 'info')
-      return
-    }
+    if (marketplaceId === 'ozon' && mode === 'aplus') setAPlusType('ozon-detail')
     setPlannerMode(mode)
     setStylePreview(null)
     setStyleError('')
@@ -1588,9 +1588,13 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     const nextMarketplaceId = normalizeAmazonMarketplaceId(value)
     if (nextMarketplaceId === marketplaceId) return
     const clearedStyleGuides = { listing: '', aplus: '' }
-    const nextPlannerMode = nextMarketplaceId === 'ozon' ? 'listing' : plannerMode
+    const nextPlannerMode = plannerMode
+    const nextAPlusType: APlusContentType = nextMarketplaceId === 'ozon'
+      ? 'ozon-detail'
+      : aPlusType === 'ozon-detail' ? 'standard-large' : aPlusType
     setMarketplaceId(nextMarketplaceId)
     setPlannerMode(nextPlannerMode)
+    setAPlusType(nextAPlusType)
     setImagePlans([])
     setAPlusPlans([])
     setSeriesStyleGuides(clearedStyleGuides)
@@ -1601,6 +1605,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     updateCurrentPlannerSession({
       marketplaceId: nextMarketplaceId,
       mode: nextPlannerMode,
+      aPlusType: nextAPlusType,
       seriesStyleGuides: clearedStyleGuides,
       imagePlans: [],
       aPlusPlans: [],
@@ -1621,12 +1626,12 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
   }
 
   const updateCurrentAPlusModuleSpecs = (nextSpecs: AmazonAPlusModuleSpec[]) => {
-    const normalizedSpecs = normalizeAPlusModuleSpecs(aPlusType, nextSpecs)
+    const normalizedSpecs = normalizeAPlusModuleSpecs(activeAPlusType, nextSpecs)
     const next = { ...aPlusModuleSpecsByType }
-    if (areAPlusModuleSpecsEquivalent(normalizedSpecs, getAPlusModuleSpecs(aPlusType))) {
-      delete next[aPlusType]
+    if (areAPlusModuleSpecsEquivalent(normalizedSpecs, getAPlusModuleSpecs(activeAPlusType))) {
+      delete next[activeAPlusType]
     } else {
-      next[aPlusType] = normalizedSpecs
+      next[activeAPlusType] = normalizedSpecs
     }
     setAPlusModuleSpecsByType(next)
     saveAPlusModuleSpecsByType(next)
@@ -1634,18 +1639,18 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
 
   const addAPlusModuleAfter = (index: number) => {
     if (isPlanning || aPlusPlans.length > 0 || aPlusSpecs.length >= MAX_A_PLUS_MODULE_COUNT) return
-    updateCurrentAPlusModuleSpecs(insertAPlusModuleSpecAfter(aPlusType, aPlusSpecs, index))
+    updateCurrentAPlusModuleSpecs(insertAPlusModuleSpecAfter(activeAPlusType, aPlusSpecs, index))
   }
 
   const removeAPlusModuleAt = (index: number) => {
     if (isPlanning || aPlusPlans.length > 0 || aPlusSpecs.length <= MIN_A_PLUS_MODULE_COUNT) return
-    updateCurrentAPlusModuleSpecs(removeAPlusModuleSpecAt(aPlusType, aPlusSpecs, index))
+    updateCurrentAPlusModuleSpecs(removeAPlusModuleSpecAt(activeAPlusType, aPlusSpecs, index))
   }
 
   const restoreDefaultAPlusModules = () => {
     if (isPlanning || aPlusPlans.length > 0 || aPlusSpecsAreDefault) return
     const next = { ...aPlusModuleSpecsByType }
-    delete next[aPlusType]
+    delete next[activeAPlusType]
     setAPlusModuleSpecsByType(next)
     saveAPlusModuleSpecsByType(next)
   }
@@ -1992,22 +1997,21 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <span>{isAliyunQwenProvider ? 'Qwen-Image 3.0 Pro' : 'OpenAI gpt-image-2'}</span>
               <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-              <span>1K / 2K / 4K</span>
+              <span>{isOzonMarketplace ? 'Ozon 750x1000' : '1K / 2K / 4K'}</span>
               <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-              <span>主图、附图与 A+ 策划</span>
+              <span>{isOzonMarketplace ? 'Listing 与详情图策划' : '主图、附图与 A+ 策划'}</span>
             </div>
             <div className="ios-segmented mt-3">
               {([
                 ['listing', 'Listing 图'],
-                ['aplus', 'A+ 图'],
+                ['aplus', isOzonMarketplace ? '详情图' : 'A+ 图'],
               ] as const).map(([mode, label]) => (
                 <button
                   key={mode}
                   type="button"
-                  disabled={isOzonMarketplace && mode === 'aplus'}
                   onClick={() => changePlannerMode(mode)}
                   data-active={plannerMode === mode}
-                  className={`ios-segment h-8 px-3 text-sm font-medium ${isOzonMarketplace && mode === 'aplus' ? 'cursor-not-allowed text-gray-300 dark:text-gray-600' : plannerMode === mode ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                  className={`ios-segment h-8 px-3 text-sm font-medium ${plannerMode === mode ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
                 >
                   {label}
                 </button>
@@ -2041,7 +2045,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                 </select>
               </label>
             )}
-            {isOzonMarketplace && plannerMode === 'listing' ? (
+            {isOzonMarketplace ? (
               <div className="inline-flex h-10 items-center rounded-[var(--ios-radius-md)] bg-[hsl(var(--muted))] px-3 text-sm font-semibold text-gray-800 dark:text-gray-100">
                 Ozon {OZON_LISTING_IMAGE_SIZE}
               </div>
@@ -2100,11 +2104,11 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{session.title}</div>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-                          <span>{session.mode === 'aplus' ? 'A+ 图' : 'Listing 图'}</span>
+                          <span>{session.mode === 'aplus' ? getSessionMarketplaceId(session) === 'ozon' ? '详情图' : 'A+ 图' : 'Listing 图'}</span>
                           <span>·</span>
                           <span>{getAmazonMarketplaceLabel(getSessionMarketplaceId(session))}</span>
                           <span>·</span>
-                          <span>{session.mode === 'aplus' ? getAPlusContentTypeLabel(session.aPlusType) : `${session.imagePlans.length} 张`}</span>
+                          <span>{session.mode === 'aplus' ? getSessionMarketplaceId(session) === 'ozon' ? `${session.aPlusPlans.length || 7} 张` : getAPlusContentTypeLabel(session.aPlusType) : `${session.imagePlans.length} 张`}</span>
                           <span>·</span>
                           <span>{formatPlannerSessionTime(session.updatedAt)}</span>
                         </div>
@@ -2154,11 +2158,13 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {plannerMode === 'aplus' ? 'A+ 图片策划' : 'Listing 智能策划'}
+                  {plannerMode === 'aplus' ? isOzonMarketplace ? 'Ozon 详情图策划' : 'A+ 图片策划' : 'Listing 智能策划'}
                 </div>
                 <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                   {plannerMode === 'aplus'
-                    ? `面向${marketplace.label}，生成普通A+ / 标准A+ / 高级A+ / 手机A+模块编排、英文生图提示词和${marketplace.copyLanguage}文案。`
+                    ? isOzonMarketplace
+                      ? `面向${marketplace.label}，默认生成 7 张 750x1000 详情图、英文生图提示词和${marketplace.copyLanguage}图片文案。`
+                      : `面向${marketplace.label}，生成普通A+ / 标准A+ / 高级A+ / 手机A+模块编排、英文生图提示词和${marketplace.copyLanguage}文案。`
                     : `面向${marketplace.label}，生成 ${listingSlotRange} 的逐张方案、英文生图提示词和${marketplace.copyLanguage}图片文案。`}
                 </div>
               </div>
@@ -2171,14 +2177,9 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                 {guideState.message}
               </div>
             )}
-            {plannerMode === 'aplus' && (
+            {plannerMode === 'aplus' && !isOzonMarketplace && (
               <div className="ios-segmented mt-3">
-                {([
-                  ['standard-large', '普通A+'],
-                  ['standard', '标准A+'],
-                  ['premium', '高级A+'],
-                  ['mobile', '手机A+'],
-                ] as const).map(([type, label]) => (
+                {AMAZON_A_PLUS_CONTENT_TYPES.map((type) => (
                   <button
                     key={type}
                     type="button"
@@ -2186,19 +2187,21 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                     data-active={aPlusType === type}
                     className={`ios-segment h-8 px-3 text-sm font-medium ${aPlusType === type ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
                   >
-                    {label}
+                    {getAPlusContentTypeLabel(type)}
                   </button>
                 ))}
               </div>
             )}
             <label className={`mt-3 block rounded-xl transition ${getGuideFocusClass(guideState.target === 'planner-input')}`}>
-              <span className={LABEL_CLASS}>{plannerMode === 'aplus' ? 'Listing / A+ 文案 / 品牌说明' : `${marketplace.label} Listing 文案`}</span>
+              <span className={LABEL_CLASS}>{plannerMode === 'aplus' ? isOzonMarketplace ? 'Ozon Listing / 商品说明' : 'Listing / A+ 文案 / 品牌说明' : `${marketplace.label} Listing 文案`}</span>
               <textarea
                 value={listingText}
                 onChange={(event) => setListingText(event.target.value)}
                 className={`${FIELD_CLASS} min-h-[138px] resize-y`}
                 placeholder={plannerMode === 'aplus'
-                  ? `粘贴 Listing 策划页生成的${marketplace.label} Listing、品牌说明或 A+ 文案，再点击 AI 策划 A+。`
+                  ? isOzonMarketplace
+                    ? `粘贴 Listing 策划页生成的 Ozon 俄语 Listing、商品说明或详情图方向，再点击 AI 策划详情图。`
+                    : `粘贴 Listing 策划页生成的${marketplace.label} Listing、品牌说明或 A+ 文案，再点击 AI 策划 A+。`
                   : `粘贴 Listing 策划页生成的${marketplace.label} Listing。\n这里不放阿里参数截图，商品角度参考图请上传到下面的参考图区域。`}
               />
             </label>
@@ -2217,7 +2220,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                   disabled={isPlanning || Boolean(plannerProfileValidation)}
                   className={`ios-button h-10 px-4 text-sm font-semibold ${isPlanning ? 'cursor-wait bg-gray-400 text-white' : plannerProfileValidation ? 'cursor-not-allowed bg-gray-300 text-white dark:bg-white/[0.12]' : 'ios-button-filled'} ${guideState.target === 'planner-action' ? 'ring-2 ring-[hsl(var(--primary)/0.25)] ring-offset-2 ring-offset-white dark:ring-offset-gray-950' : ''}`}
                 >
-                  {isPlanning ? '策划中...' : plannerMode === 'aplus' ? 'AI策划A+' : 'AI策划'}
+                  {isPlanning ? '策划中...' : plannerMode === 'aplus' ? isOzonMarketplace ? 'AI策划详情图' : 'AI策划A+' : 'AI策划'}
                 </button>
                 {isPlanning && (
                   <button
@@ -2939,9 +2942,11 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
               )}
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">A+ 模块编排</div>
+                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{isOzonMarketplace ? 'Ozon 详情图编排' : 'A+ 模块编排'}</div>
                   <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    选择模块后，Prompt Preview 和生成按钮会切换到对应 A+ 提示词与尺寸。
+                    {isOzonMarketplace
+                      ? '选择详情图后，Prompt Preview 和生成按钮会切换到对应 750x1000 提示词。'
+                      : '选择模块后，Prompt Preview 和生成按钮会切换到对应 A+ 提示词与尺寸。'}
                   </div>
                 </div>
                 <span className="shrink-0 rounded-lg bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
@@ -2999,12 +3004,15 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
             <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-white/[0.08] dark:bg-gray-950">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">A+ 模块编排</div>
+                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{isOzonMarketplace ? 'Ozon 详情图编排' : 'A+ 模块编排'}</div>
                   <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    当前选择 {getAPlusContentTypeLabel(aPlusType)}，可先调整模块数量，再点击 AI策划A+。
+                    {isOzonMarketplace
+                      ? '默认 7 张详情图，全部按 750x1000 竖图策划。'
+                      : `当前选择 ${getAPlusContentTypeLabel(aPlusType)}，可先调整模块数量，再点击 AI策划A+。`}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
+                  {!isOzonMarketplace && (
                   <button
                     type="button"
                     onClick={restoreDefaultAPlusModules}
@@ -3015,6 +3023,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                     <RefreshIcon className="h-3.5 w-3.5" />
                     恢复默认
                   </button>
+                  )}
                   <span className="rounded-lg bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
                     {aPlusSpecs.length} 张
                   </span>
@@ -3037,6 +3046,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                           {isAPlusTextModule(spec) ? ' · 含标题/正文' : ''}
                         </div>
                       </div>
+                      {!isOzonMarketplace && (
                       <div className="flex shrink-0 items-center gap-1">
                         <button
                           type="button"
@@ -3059,6 +3069,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                           <TrashIcon className="h-3.5 w-3.5" />
                         </button>
                       </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -3085,7 +3096,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
             </div>
             <textarea
               value={plannerMode === 'aplus' && !selectedAPlusPlan
-                ? '请先点击 AI策划A+，再在右侧选择一个 A+ 模块。'
+                ? isOzonMarketplace ? '请先点击 AI策划详情图，再在右侧选择一张 Ozon 详情图。' : '请先点击 AI策划A+，再在右侧选择一个 A+ 模块。'
                 : activePlanPreview || `请先粘贴 Listing 策划页生成的${marketplace.label} Listing，并上传商品角度参考图，然后点击 AI 策划。这里会生成图片方案、英文 Prompt 和 Negative Prompt。`}
               className="ios-field h-[430px] w-full resize-none p-3 font-mono text-xs leading-relaxed text-gray-700 dark:text-gray-200"
               spellCheck={false}
@@ -3096,7 +3107,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
             <div className="ios-group mt-3 p-4">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  A+ 文案 · {selectedAPlusPlan.slot}
+                  {isOzonMarketplace ? '详情图文案' : 'A+ 文案'} · {selectedAPlusPlan.slot}
                 </span>
                 <button
                   type="button"
@@ -3109,19 +3120,19 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                 </button>
               </div>
               <textarea
-                value={selectedAPlusText || (isAPlusTextModule(selectedAPlusPlan) ? '该模块暂未生成标题/正文文案。' : '当前模块通常不需要外部标题/正文文案。')}
+                value={selectedAPlusText || (isOzonMarketplace ? '当前详情图暂未生成外部文案。' : isAPlusTextModule(selectedAPlusPlan) ? '该模块暂未生成标题/正文文案。' : '当前模块通常不需要外部标题/正文文案。')}
                 className="ios-field h-28 w-full resize-none p-3 text-xs leading-relaxed text-gray-700 dark:text-gray-200"
                 spellCheck={false}
                 readOnly
               />
               <div className="mt-2 text-[11px] text-gray-400">
-                外部 A+ 文案用于亚马逊模块文本区，不会写入图片生成 Prompt。
+                {isOzonMarketplace ? '详情图文案可用于 Ozon 图外说明或人工校对，不会写入图片生成 Prompt。' : '外部 A+ 文案用于亚马逊模块文本区，不会写入图片生成 Prompt。'}
               </div>
             </div>
           )}
           {activePrompt.trim() && prompt.trim() && prompt !== activePrompt && (
             <div className="mt-3 rounded-[var(--ios-radius-md)] bg-[hsl(var(--ios-blue-tint))] px-3 py-2 text-xs text-[hsl(var(--primary))]">
-              底部输入框已有内容，点击“填入”会用当前亚马逊提示词覆盖。
+              底部输入框已有内容，点击“填入”会用当前{isOzonMarketplace ? ' Ozon' : '亚马逊'}提示词覆盖。
             </div>
           )}
         </div>
