@@ -101,6 +101,7 @@ const DEFAULT_SEEDREAM_EDITOR_DRAFT: SeedreamEditorDraft = {
   instruction: '',
   annotations: [],
   resolution: '2k',
+  customSize: '2048x2048',
   latestTaskId: null,
   updatedAt: 0,
 }
@@ -1591,7 +1592,10 @@ export function normalizeSeedreamEditorDraft(value: unknown): SeedreamEditorDraf
     annotations: Array.isArray(draft.annotations)
       ? draft.annotations.map(normalizeSeedreamAnnotation).filter((item): item is SeedreamAnnotation => item != null)
       : [],
-    resolution: draft.resolution === '4k' ? '4k' : '2k',
+    resolution: draft.resolution === '4k' || draft.resolution === 'custom' ? draft.resolution : '2k',
+    customSize: typeof draft.customSize === 'string' && /^\d+\s*[xX×]\s*\d+$/.test(draft.customSize.trim())
+      ? draft.customSize.trim().replace(/[X×]/, 'x')
+      : '2048x2048',
     latestTaskId: typeof draft.latestTaskId === 'string' && draft.latestTaskId ? draft.latestTaskId : null,
     updatedAt: typeof draft.updatedAt === 'number' && Number.isFinite(draft.updatedAt) ? draft.updatedAt : 0,
   }
@@ -4029,7 +4033,7 @@ function navigateToSeedreamEditor() {
   if (typeof window !== 'undefined' && window.location.hash !== '#/editor') window.location.hash = '/editor'
 }
 
-function getSeedreamEditorResolutionFromSize(size: string): SeedreamEditorDraft['resolution'] {
+function getSeedreamEditorResolutionFromSize(size: string): Exclude<SeedreamEditorDraft['resolution'], 'custom'> {
   if (size.toUpperCase().includes('4K')) return '4k'
   const match = size.match(/^(\d+)\s*[xX×]\s*(\d+)$/)
   return match && Math.max(Number(match[1]), Number(match[2])) > 2048 ? '4k' : '2k'
@@ -4058,13 +4062,18 @@ export function openSeedreamTaskInEditor(task: TaskRecord) {
   }
   const state = useStore.getState()
   const keepAnnotations = state.seedreamEditorDraft.sourceImageId === sourceImageId && state.seedreamEditorDraft.latestTaskId === task.id
+  const storedOutputSize = context?.outputSize
+  const restoredResolution = storedOutputSize && /^\d+\s*[xX×]\s*\d+$/.test(storedOutputSize)
+    ? 'custom'
+    : getSeedreamEditorResolutionFromSize(storedOutputSize || task.params.size)
   state.setSeedreamEditorDraft({
     engine: context?.engine ?? (task.apiProvider === 'volcengine' ? 'seedream' : 'home'),
     sourceImageId,
     referenceImageIds: (context?.referenceImageIds ?? []).filter((id) => id !== sourceImageId).slice(0, MAX_SEEDREAM_REFERENCE_IMAGES),
     instruction: context?.userInstruction ?? task.prompt,
     annotations: keepAnnotations ? state.seedreamEditorDraft.annotations : [],
-    resolution: getSeedreamEditorResolutionFromSize(task.params.size),
+    resolution: restoredResolution,
+    customSize: restoredResolution === 'custom' ? storedOutputSize! : state.seedreamEditorDraft.customSize,
     latestTaskId: task.id,
   })
   navigateToSeedreamEditor()

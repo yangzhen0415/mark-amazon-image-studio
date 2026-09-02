@@ -22,6 +22,7 @@ interface Props {
   onSelect: (size: string) => void
   onClose: () => void
   allowAuto?: boolean
+  initialMode?: Mode
 }
 
 type Mode = 'auto' | 'ratio' | 'resolution'
@@ -44,12 +45,13 @@ function findPresetForSize(size: string) {
   return null
 }
 
-export default function SizePickerModal({ currentSize, onSelect, onClose, allowAuto = true }: Props) {
+export default function SizePickerModal({ currentSize, onSelect, onClose, allowAuto = true, initialMode }: Props) {
   usePreventBackgroundScroll(true)
 
   const currentPreset = findPresetForSize(currentSize)
   const currentParsedSize = parseSize(currentSize)
   const [mode, setMode] = useState<Mode>(() => {
+    if (initialMode && (allowAuto || initialMode !== 'auto')) return initialMode
     if (!currentSize || currentSize === 'auto') return allowAuto ? 'auto' : 'ratio'
     if (currentPreset) return 'ratio'
     return 'resolution'

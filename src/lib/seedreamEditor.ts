@@ -2,7 +2,7 @@ import type { ApiProfile, ImageEditorEngine, SeedreamAnnotation, SeedreamEditorR
 import { DEFAULT_PARAMS } from '../types'
 import { isVolcengineSeedreamProModel } from './apiProfiles'
 import { loadImage } from './canvasImage'
-import { calculateImageSize } from './size'
+import { calculateImageSize, normalizeImageSize } from './size'
 
 export const SEEDREAM_EDITOR_REFERENCE_LIMIT = 4
 export const SEEDREAM_EDITOR_COLORS = ['#ef4444', '#2563eb', '#16a34a', '#eab308'] as const
@@ -11,6 +11,7 @@ export interface SeedreamEditPromptOptions {
   instruction: string
   hasVisualGuide: boolean
   referenceCount: number
+  preserveSourceAspectRatio?: boolean
 }
 
 function getImageEditorTaskEngine(task: TaskRecord): ImageEditorEngine {
@@ -40,7 +41,7 @@ export function findLatestImageEditorTask(
   ), null)
 }
 
-export function buildSeedreamEditPrompt({ instruction, hasVisualGuide, referenceCount }: SeedreamEditPromptOptions) {
+export function buildSeedreamEditPrompt({ instruction, hasVisualGuide, referenceCount, preserveSourceAspectRatio = true }: SeedreamEditPromptOptions) {
   const visualGuideIndex = hasVisualGuide ? 2 : null
   const referenceStartIndex = hasVisualGuide ? 3 : 2
   const roles = [
@@ -63,11 +64,13 @@ export function buildSeedreamEditPrompt({ instruction, hasVisualGuide, reference
       ? '请根据视觉定位图理解位置，但最终结果中不得出现任何红、蓝、绿、黄标注线、箭头、边框或涂鸦。'
       : null,
     '只修改用户明确指定的区域和内容；未指定区域、主体身份、透视、光照、文字与版式应尽量保持不变。',
-    '保持图1的原始宽高比，只输出一张完成后的干净图片，不要输出对比图、拼图、说明文字或额外版本。',
+    preserveSourceAspectRatio
+      ? '保持图1的原始宽高比，只输出一张完成后的干净图片，不要输出对比图、拼图、说明文字或额外版本。'
+      : '按请求的自定义宽高输出；若画幅比例与图1不同，请通过自然延展或合理裁切适配画布，不得拉伸主体。只输出一张完成后的干净图片，不要输出对比图、拼图、说明文字或额外版本。',
   ].filter((line): line is string => line != null).join('\n')
 }
 
-export function createSeedreamEditorParams(resolution: SeedreamEditorResolution): TaskParams {
+export function createSeedreamEditorParams(resolution: Exclude<SeedreamEditorResolution, 'custom'>): TaskParams {
   return {
     ...DEFAULT_PARAMS,
     size: resolution === '4k' ? '4K' : '2K',
@@ -81,7 +84,18 @@ export function createImageEditorParams(
   resolution: SeedreamEditorResolution,
   profile: Pick<ApiProfile, 'provider' | 'model'>,
   sourceDimensions: { width: number; height: number },
+  customSize = '2048x2048',
 ): TaskParams {
+  if (resolution === 'custom') {
+    return {
+      ...DEFAULT_PARAMS,
+      size: normalizeImageSize(customSize),
+      n: 1,
+      output_format: 'jpeg',
+      output_compression: null,
+    }
+  }
+
   if (profile.provider === 'volcengine' && isVolcengineSeedreamProModel(profile.model)) {
     return createSeedreamEditorParams(resolution)
   }

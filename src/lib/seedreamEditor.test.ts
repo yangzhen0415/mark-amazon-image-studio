@@ -81,6 +81,29 @@ describe('Seedream editor params', () => {
     }, { width: 1600, height: 900 })).toMatchObject({ size: '4K', n: 1 })
   })
 
+  it('uses a normalized custom size instead of forcing the source ratio', () => {
+    expect(createImageEditorParams('custom', {
+      provider: 'openai',
+      model: 'gpt-image-2',
+    }, { width: 1600, height: 900 }, '1001x1501')).toMatchObject({
+      size: '1008x1504',
+      n: 1,
+    })
+  })
+
+  it('tells the model to adapt the canvas when a custom aspect ratio is requested', () => {
+    const prompt = buildSeedreamEditPrompt({
+      instruction: '保留产品并补全背景',
+      hasVisualGuide: false,
+      referenceCount: 0,
+      preserveSourceAspectRatio: false,
+    })
+
+    expect(prompt).toContain('按请求的自定义宽高输出')
+    expect(prompt).toContain('不得拉伸主体')
+    expect(prompt).not.toContain('保持图1的原始宽高比')
+  })
+
   it('adds quick actions without overwriting the existing requirement', () => {
     expect(appendSeedreamQuickAction('保留产品', '改色')).toBe('保留产品；改色：')
     expect(appendSeedreamQuickAction('', '删除')).toBe('删除：')

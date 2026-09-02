@@ -148,7 +148,7 @@ export interface MaskDraft {
   updatedAt: number
 }
 
-export type SeedreamEditorResolution = '2k' | '4k'
+export type SeedreamEditorResolution = '2k' | '4k' | 'custom'
 export type ImageEditorEngine = 'home' | 'seedream'
 export type SeedreamAnnotationKind = 'brush' | 'rectangle' | 'ellipse' | 'arrow'
 
@@ -174,6 +174,8 @@ export interface SeedreamEditorDraft {
   instruction: string
   annotations: SeedreamAnnotation[]
   resolution: SeedreamEditorResolution
+  /** 自定义模式下使用的、已规整为合法范围的宽高 */
+  customSize?: string
   latestTaskId: string | null
   updatedAt: number
 }
@@ -185,6 +187,8 @@ export interface TaskImageEditContext {
   visualGuideImageId?: string | null
   referenceImageIds: string[]
   userInstruction: string
+  /** 用户在编辑器中选择的原始输出规格，用于恢复 2K / 4K / 自定义状态 */
+  outputSize?: string
 }
 
 // ===== 任务记录 =====

@@ -46,6 +46,7 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
 } from './icons'
+import SizePickerModal from './SizePickerModal'
 
 const OFFICIAL_ARTICLE_URL = 'https://seed.bytedance.com/zh/blog/beyond-generation-it-understands-design-introducing-seedream-5-0-pro?view_from=content_recommend'
 const OFFICIAL_PROMPT_GUIDE_URL = 'https://docs.volcengine.com/docs/82379/1829186?lang=zh'
@@ -280,6 +281,7 @@ export default function ImageEditorPage() {
   const [undoStack, setUndoStack] = useState<SeedreamAnnotation[][]>([])
   const [redoStack, setRedoStack] = useState<SeedreamAnnotation[][]>([])
   const [pickerMode, setPickerMode] = useState<PickerMode | null>(null)
+  const [showSizePicker, setShowSizePicker] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const latestTask = useMemo(
@@ -298,6 +300,7 @@ export default function ImageEditorPage() {
   const homeProfile = useMemo(() => getHomeApiProfile(settings), [settings])
   const seedreamProfile = useMemo(() => getSeedreamEditorProfile(settings), [settings])
   const profile = draft.engine === 'seedream' ? seedreamProfile : homeProfile
+  const customSize = draft.customSize ?? '2048x2048'
   const profileValidationError = profile ? validateApiProfile(profile) : null
   const profileError = !profile
     ? '尚未配置 Seedream Pro 图片编辑 API'
@@ -627,9 +630,10 @@ export default function ImageEditorPage() {
           instruction: draft.instruction,
           hasVisualGuide: Boolean(visualGuide),
           referenceCount: referenceImages.length,
+          preserveSourceAspectRatio: draft.resolution !== 'custom',
         }),
         inputImages,
-        params: createImageEditorParams(draft.resolution, profile, dimensions),
+        params: createImageEditorParams(draft.resolution, profile, dimensions, customSize),
         category: { workflow: 'seedream-edit' },
         imageEditContext: {
           engine: draft.engine,
@@ -637,6 +641,7 @@ export default function ImageEditorPage() {
           visualGuideImageId: visualGuide?.id ?? null,
           referenceImageIds: draft.referenceImageIds,
           userInstruction: draft.instruction.trim(),
+          outputSize: draft.resolution === 'custom' ? customSize : draft.resolution.toUpperCase(),
         },
       })
       if (taskId) setDraft({ latestTaskId: taskId })
@@ -907,11 +912,14 @@ export default function ImageEditorPage() {
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">输出分辨率</span>
               <div className="ios-segmented flex">
                 {(['2k', '4k'] as const).map((resolution) => (
-                  <button key={resolution} type="button" aria-pressed={draft.resolution === resolution} data-active={draft.resolution === resolution} onClick={() => setDraft({ resolution })} className={`ios-segment h-8 px-4 text-xs font-semibold ${draft.resolution === resolution ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{resolution.toUpperCase()}</button>
+                  <button key={resolution} type="button" aria-pressed={draft.resolution === resolution} data-active={draft.resolution === resolution} onClick={() => setDraft({ resolution })} className={`ios-segment h-8 px-3 text-xs font-semibold ${draft.resolution === resolution ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>{resolution.toUpperCase()}</button>
                 ))}
+                <button type="button" aria-pressed={draft.resolution === 'custom'} data-active={draft.resolution === 'custom'} onClick={() => setShowSizePicker(true)} className={`ios-segment h-8 px-3 text-xs font-semibold ${draft.resolution === 'custom' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>自定义</button>
               </div>
             </div>
-            <div className="mt-2 text-right text-[11px] text-gray-400">固定单张输出 · 保持主图比例</div>
+            <div className="mt-2 text-right text-[11px] text-gray-400">
+              {draft.resolution === 'custom' ? `固定单张输出 · ${customSize.replace('x', ' × ')} px` : '固定单张输出 · 保持主图比例'}
+            </div>
 
             <button type="button" onClick={() => void generate()} disabled={submitting || isRunning || !draft.sourceImageId || !draft.instruction.trim() || Boolean(profileError)} className="ios-button ios-button-filled mt-4 flex h-11 w-full items-center justify-center gap-2 px-4 text-sm font-semibold disabled:cursor-not-allowed">
               {(submitting || isRunning) && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
@@ -991,6 +999,15 @@ export default function ImageEditorPage() {
       </section>
 
       {pickerMode && <HistoryImagePicker mode={pickerMode} tasks={tasks} onSelect={handleHistorySelect} onClose={() => setPickerMode(null)} />}
+      {showSizePicker && (
+        <SizePickerModal
+          currentSize={customSize}
+          allowAuto={false}
+          initialMode="resolution"
+          onSelect={(customSize) => setDraft({ resolution: 'custom', customSize })}
+          onClose={() => setShowSizePicker(false)}
+        />
+      )}
     </div>
   )
 }
