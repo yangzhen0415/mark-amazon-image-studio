@@ -657,7 +657,7 @@ function buildAPlusPlannerInstructions(baseDraft: AmazonPromptDraft, aPlusType: 
   const marketplace = getAmazonMarketplace(marketplaceId)
   const isOzon = marketplace.id === 'ozon' || aPlusType === 'ozon-detail'
   const mobileGuidance = aPlusType === 'mobile'
-    ? `For Mobile A+ modules, design every 600x450 image for compact mobile screens: one clear message per module, large product evidence, short mobile-readable ${marketplace.onImageCopyLanguage} copy, and no dense multi-column layouts.`
+    ? `For Mobile A+ modules, design every 4:3 image at the exact module size listed below for compact mobile screens: one clear message per module, large product evidence, short mobile-readable ${marketplace.onImageCopyLanguage} copy, and no dense multi-column layouts.`
     : ''
   return [
     isOzon
@@ -884,7 +884,7 @@ export async function callAmazonPlannerApi(options: {
   const model = options.model?.trim() || options.profile.model.trim() || (options.profile.apiMode === 'chat' ? DEFAULT_CHAT_MODEL : DEFAULT_RESPONSES_MODEL)
   const mode = options.mode ?? 'listing'
   const marketplaceId = normalizeAmazonMarketplaceId(options.marketplaceId)
-  const aPlusType = options.aPlusType ?? 'standard-large'
+  const aPlusType = options.aPlusType === 'standard-large' ? 'standard' : options.aPlusType ?? 'standard'
   const listingImageCount = normalizeListingImageCount(options.listingImageCount)
   const aPlusModuleSpecs = normalizeAPlusModuleSpecs(aPlusType, options.aPlusModuleSpecs)
   const aPlusGenerationTier = options.aPlusGenerationTier ?? '2K'

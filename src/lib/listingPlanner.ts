@@ -16,8 +16,8 @@ export type APlusModuleKind =
   | 'logo'
   | 'comparison-thumbnail'
 
-export const A_PLUS_CONTENT_TYPES: APlusContentType[] = ['standard-large', 'standard', 'premium', 'mobile', 'ozon-detail']
-export const AMAZON_A_PLUS_CONTENT_TYPES: APlusContentType[] = ['standard-large', 'standard', 'premium', 'mobile']
+export const A_PLUS_CONTENT_TYPES: APlusContentType[] = ['standard', 'standard-large', 'premium', 'mobile', 'ozon-detail']
+export const AMAZON_A_PLUS_CONTENT_TYPES: APlusContentType[] = ['standard', 'premium', 'mobile']
 export const MIN_A_PLUS_MODULE_COUNT = 1
 export const MAX_A_PLUS_MODULE_COUNT = 12
 
@@ -80,10 +80,10 @@ export const STANDARD_A_PLUS_MODULE_SPECS: AmazonAPlusModuleSpec[] = [
     displayLabel: '顶部横幅',
     moduleType: 'header-banner',
     uploadWidth: 970,
-    uploadHeight: 300,
-    objective: '用横幅建立品牌质感和核心产品利益点。',
+    uploadHeight: 600,
+    objective: '用整张大图建立品牌质感和核心产品利益点。',
   },
-  ...Array.from({ length: 3 }, (_, index) => ({
+  ...Array.from({ length: 6 }, (_, index) => ({
     contentType: 'standard' as const,
     slot: `A+S0${index + 2}`,
     label: `Single Image ${index + 1}`,
@@ -91,17 +91,7 @@ export const STANDARD_A_PLUS_MODULE_SPECS: AmazonAPlusModuleSpec[] = [
     moduleType: 'single-image' as const,
     uploadWidth: 970,
     uploadHeight: 600,
-    objective: '用单图模块讲清一个关键卖点或使用场景。',
-  })),
-  ...Array.from({ length: 4 }, (_, index) => ({
-    contentType: 'standard' as const,
-    slot: `A+S0${index + 5}`,
-    label: `Highlight Tile ${index + 1}`,
-    displayLabel: `卖点方块 ${index + 1}`,
-    moduleType: 'highlight-tile' as const,
-    uploadWidth: 220,
-    uploadHeight: 220,
-    objective: '用方形图块快速呈现一个产品亮点。',
+    objective: '用整张大图讲清一个关键卖点、使用场景或细节证据。',
   })),
 ]
 
@@ -113,10 +103,10 @@ export const STANDARD_LARGE_A_PLUS_MODULE_SPECS: AmazonAPlusModuleSpec[] = [
     displayLabel: '顶部横幅',
     moduleType: 'header-banner',
     uploadWidth: 970,
-    uploadHeight: 300,
-    objective: '用横幅建立品牌质感和核心产品利益点。',
+    uploadHeight: 600,
+    objective: '用整张大图建立品牌质感和核心产品利益点。',
   },
-  ...Array.from({ length: 4 }, (_, index) => ({
+  ...Array.from({ length: 6 }, (_, index) => ({
     contentType: 'standard-large' as const,
     slot: `A+L0${index + 2}`,
     label: `Single Image ${index + 1}`,
@@ -142,47 +132,61 @@ export const PREMIUM_A_PLUS_MODULE_SPECS: AmazonAPlusModuleSpec[] = [
   ...Array.from({ length: 3 }, (_, index) => ({
     contentType: 'premium' as const,
     slot: `A+P0${index + 2}`,
-    label: `Feature Image ${index + 1}`,
-    displayLabel: `高级大图模块 ${index + 1}`,
+    label: `HD Feature Image ${index + 1}`,
+    displayLabel: `高清大图 ${index + 1}`,
     moduleType: 'feature-image' as const,
-    uploadWidth: 970,
+    uploadWidth: 1464,
     uploadHeight: 600,
-    objective: '用大图模块展示核心功能、材质或真实场景。',
+    objective: '用高清横幅大图展示核心功能、材质或真实场景。',
   })),
-  ...Array.from({ length: 2 }, (_, index) => ({
+  ...Array.from({ length: 3 }, (_, index) => ({
     contentType: 'premium' as const,
     slot: `A+P0${index + 5}`,
-    label: `Brand Story ${index + 1}`,
-    displayLabel: `品牌故事 ${index + 1}`,
-    moduleType: 'brand-story' as const,
-    uploadWidth: 463,
-    uploadHeight: 625,
-    objective: '用竖版品牌故事模块强化信任和使用想象。',
+    label: `HD Feature Image ${index + 4}`,
+    displayLabel: `高清大图 ${index + 4}`,
+    moduleType: 'feature-image' as const,
+    uploadWidth: 1464,
+    uploadHeight: 600,
+    objective: '用高清横幅大图强化材质、结构、场景或核心信任点。',
   })),
 ]
 
-export const MOBILE_A_PLUS_MODULE_SPECS: AmazonAPlusModuleSpec[] = [
+export type MobileAPlusSizePreset = '600x450'
+export const MOBILE_A_PLUS_SIZE_PRESETS: Array<{ value: MobileAPlusSizePreset; label: string; width: number; height: number }> = [
+  { value: '600x450', label: '600x450px', width: 600, height: 450 },
+]
+
+function getMobileAPlusSizePreset(value: MobileAPlusSizePreset = '600x450') {
+  return MOBILE_A_PLUS_SIZE_PRESETS.find((preset) => preset.value === value) ?? MOBILE_A_PLUS_SIZE_PRESETS[0]!
+}
+
+export function createMobileAPlusModuleSpecs(sizePreset: MobileAPlusSizePreset = '600x450'): AmazonAPlusModuleSpec[] {
+  const size = getMobileAPlusSizePreset(sizePreset)
+  return [
   {
     contentType: 'mobile',
     slot: 'A+M01',
     label: 'Mobile Hero',
     displayLabel: '手机首屏',
     moduleType: 'hero-banner',
-    uploadWidth: 600,
-    uploadHeight: 450,
+    uploadWidth: size.width,
+    uploadHeight: size.height,
     objective: '用移动端首屏图建立产品核心卖点和清晰视觉吸引力。',
   },
-  ...Array.from({ length: 4 }, (_, index) => ({
+  ...Array.from({ length: 6 }, (_, index) => ({
     contentType: 'mobile' as const,
     slot: `A+M0${index + 2}`,
     label: `Mobile Feature ${index + 1}`,
     displayLabel: `手机卖点图 ${index + 1}`,
     moduleType: 'feature-image' as const,
-    uploadWidth: 600,
-    uploadHeight: 450,
+    uploadWidth: size.width,
+    uploadHeight: size.height,
     objective: '用移动端友好的 4:3 图片讲清一个关键卖点、细节证据或使用场景。',
   })),
-]
+  ]
+}
+
+export const MOBILE_A_PLUS_MODULE_SPECS: AmazonAPlusModuleSpec[] = createMobileAPlusModuleSpecs()
 
 export const OZON_DETAIL_IMAGE_SPECS: AmazonAPlusModuleSpec[] = Array.from({ length: 7 }, (_, index) => ({
   contentType: 'ozon-detail' as const,
@@ -429,6 +433,11 @@ function getAPlusModuleTypeText(type: APlusContentType, moduleType: APlusModuleK
             label: `Mobile Feature${suffix}`,
             displayLabel: `手机卖点图${suffix}`,
           }
+        : type === 'premium'
+          ? {
+              label: `HD Feature Image ${ordinal}`,
+              displayLabel: `高清大图 ${ordinal}`,
+            }
         : {
             label: `Feature Image${suffix}`,
             displayLabel: `高级大图模块${suffix}`,
@@ -547,7 +556,7 @@ export function getAPlusModuleSpecs(type: APlusContentType): AmazonAPlusModuleSp
     case 'mobile':
       return MOBILE_A_PLUS_MODULE_SPECS.map(cloneAPlusModuleSpec)
     case 'standard-large':
-      return STANDARD_LARGE_A_PLUS_MODULE_SPECS.map(cloneAPlusModuleSpec)
+      return STANDARD_A_PLUS_MODULE_SPECS.map(cloneAPlusModuleSpec)
     default:
       return STANDARD_A_PLUS_MODULE_SPECS.map(cloneAPlusModuleSpec)
   }
@@ -567,7 +576,7 @@ export function getAPlusContentTypeLabel(type: APlusContentType): string {
     case 'mobile':
       return '手机A+'
     case 'standard-large':
-      return '普通A+'
+      return '标准A+'
     default:
       return '标准A+'
   }
@@ -619,18 +628,18 @@ export function getAPlusModuleUploadSize(spec: Pick<AmazonAPlusModuleSpec, 'uplo
 }
 
 export function getAPlusModuleGenerationSize(spec: Pick<AmazonAPlusModuleSpec, 'uploadWidth' | 'uploadHeight'>, tier: SizeTier): string {
-  if (spec.uploadWidth === 750 && spec.uploadHeight === 1000) return '750x1000'
-  return getAPlusGenerationSizeFromDimensions(spec.uploadWidth, spec.uploadHeight, tier)
+  void tier
+  return formatAPlusUploadSize(spec)
 }
 
 export function getAPlusPlanGenerationSize(plan: Pick<AmazonAPlusPlan, 'slot' | 'uploadSize'>, tier: SizeTier): string {
-  if (plan.uploadSize === '750x1000') return '750x1000'
+  void tier
   const match = plan.uploadSize.match(/^(\d+)x(\d+)$/)
-  if (match) return getAPlusGenerationSizeFromDimensions(Number(match[1]), Number(match[2]), tier)
+  if (match) return `${Number(match[1])}x${Number(match[2])}`
 
   const spec = findAPlusModuleSpec(plan.slot)
   if (spec) return getAPlusModuleGenerationSize(spec, tier)
-  return tier === '4K' ? '2880x2880' : '2048x2048'
+  return '970x600'
 }
 
 export function withAPlusGenerationSizes(plans: AmazonAPlusPlan[], tier: SizeTier): AmazonAPlusPlan[] {

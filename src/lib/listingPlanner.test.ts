@@ -166,45 +166,62 @@ describe('Amazon prompt builders', () => {
 
 describe('A+ module helpers', () => {
   it('returns local Chinese module names while preserving English labels', () => {
-    const highlightSpec = getAPlusModuleSpecs('standard')[4]!
+    const standardSpec = getAPlusModuleSpecs('standard')[1]!
     const premiumSpec = getAPlusModuleSpecs('premium')[0]!
 
-    expect(getAPlusModuleDisplayName(highlightSpec)).toBe('卖点方块 1')
-    expect(getAPlusModuleEnglishName(highlightSpec)).toBe('Highlight Tile 1')
+    expect(getAPlusModuleDisplayName(standardSpec)).toBe('大图模块 1')
+    expect(getAPlusModuleEnglishName(standardSpec)).toBe('Single Image 1')
     expect(getAPlusModuleDisplayName(premiumSpec)).toBe('高级首屏横幅')
     expect(getAPlusModuleEnglishName(premiumSpec)).toBe('Hero Banner')
-    expect(getAPlusContentTypeLabel('standard-large')).toBe('普通A+')
+    expect(getAPlusContentTypeLabel('standard-large')).toBe('标准A+')
     expect(getAPlusContentTypeLabel('standard')).toBe('标准A+')
     expect(getAPlusContentTypeLabel('premium')).toBe('高级A+')
     expect(getAPlusContentTypeLabel('mobile')).toBe('手机A+')
   })
 
-  it('defines Mobile A+ as five 600x450 modules', () => {
+  it('defines Premium A+ as seven modules with HD feature images at the end', () => {
+    const premiumSpecs = getAPlusModuleSpecs('premium')
+
+    expect(premiumSpecs).toHaveLength(7)
+    expect(premiumSpecs.map((spec) => spec.slot)).toEqual(['A+P01', 'A+P02', 'A+P03', 'A+P04', 'A+P05', 'A+P06', 'A+P07'])
+    expect(premiumSpecs.slice(1).map((spec) => spec.displayLabel)).toEqual(['高清大图 1', '高清大图 2', '高清大图 3', '高清大图 4', '高清大图 5', '高清大图 6'])
+    expect(premiumSpecs.every((spec) => spec.uploadWidth === 1464 && spec.uploadHeight === 600)).toBe(true)
+  })
+
+  it('defines Mobile A+ as seven fixed 600x450 modules', () => {
     const mobileSpecs = getAPlusModuleSpecs('mobile')
 
-    expect(mobileSpecs).toHaveLength(5)
-    expect(mobileSpecs.map((spec) => spec.slot)).toEqual(['A+M01', 'A+M02', 'A+M03', 'A+M04', 'A+M05'])
+    expect(mobileSpecs).toHaveLength(7)
+    expect(mobileSpecs.map((spec) => spec.slot)).toEqual(['A+M01', 'A+M02', 'A+M03', 'A+M04', 'A+M05', 'A+M06', 'A+M07'])
     expect(mobileSpecs.every((spec) => spec.uploadWidth === 600 && spec.uploadHeight === 450)).toBe(true)
     expect(getAPlusModuleDisplayName(mobileSpecs[0]!)).toBe('手机首屏')
     expect(getAPlusModuleEnglishName(mobileSpecs[1]!)).toBe('Mobile Feature 1')
   })
 
-  it('adds and removes A+ modules inline while reindexing slots and labels', () => {
-    const defaultSpecs = getAPlusModuleSpecs('standard-large')
-    const addedSpecs = insertAPlusModuleSpecAfter('standard-large', defaultSpecs, 4)
+  it('defines default 标准A+ as seven 970x600 modules', () => {
+    const specs = getAPlusModuleSpecs('standard')
 
-    expect(addedSpecs).toHaveLength(6)
-    expect(addedSpecs.map((spec) => spec.slot)).toEqual(['A+L01', 'A+L02', 'A+L03', 'A+L04', 'A+L05', 'A+L06'])
-    expect(addedSpecs[5]).toMatchObject({
-      label: 'Single Image 5',
-      displayLabel: '大图模块 5',
+    expect(specs).toHaveLength(7)
+    expect(specs.map((spec) => spec.slot)).toEqual(['A+S01', 'A+S02', 'A+S03', 'A+S04', 'A+S05', 'A+S06', 'A+S07'])
+    expect(specs.every((spec) => spec.uploadWidth === 970 && spec.uploadHeight === 600)).toBe(true)
+  })
+
+  it('adds and removes A+ modules inline while reindexing slots and labels', () => {
+    const defaultSpecs = getAPlusModuleSpecs('standard')
+    const addedSpecs = insertAPlusModuleSpecAfter('standard', defaultSpecs, 6)
+
+    expect(addedSpecs).toHaveLength(8)
+    expect(addedSpecs.map((spec) => spec.slot)).toEqual(['A+S01', 'A+S02', 'A+S03', 'A+S04', 'A+S05', 'A+S06', 'A+S07', 'A+S08'])
+    expect(addedSpecs[7]).toMatchObject({
+      label: 'Single Image 7',
+      displayLabel: '大图模块 7',
       moduleType: 'single-image',
       uploadWidth: 970,
       uploadHeight: 600,
     })
 
-    const removedSpecs = removeAPlusModuleSpecAt('standard-large', addedSpecs, 0)
-    expect(removedSpecs.map((spec) => spec.slot)).toEqual(['A+L01', 'A+L02', 'A+L03', 'A+L04', 'A+L05'])
+    const removedSpecs = removeAPlusModuleSpecAt('standard', addedSpecs, 0)
+    expect(removedSpecs.map((spec) => spec.slot)).toEqual(['A+S01', 'A+S02', 'A+S03', 'A+S04', 'A+S05', 'A+S06', 'A+S07'])
     expect(removedSpecs[0]).toMatchObject({
       label: 'Single Image 1',
       displayLabel: '大图模块 1',
@@ -268,26 +285,26 @@ function createApiPayload(title = 'AI planned tumbler', count = 7) {
 
 function createAPlusPlans(prefix: 'A+S' | 'A+L' | 'A+P' | 'A+M', brand = '') {
   const slots = prefix === 'A+S'
-    ? ['A+S01', 'A+S02', 'A+S03', 'A+S04', 'A+S05', 'A+S06', 'A+S07', 'A+S08']
+    ? ['A+S01', 'A+S02', 'A+S03', 'A+S04', 'A+S05', 'A+S06', 'A+S07']
     : prefix === 'A+L'
-      ? ['A+L01', 'A+L02', 'A+L03', 'A+L04', 'A+L05']
+      ? ['A+L01', 'A+L02', 'A+L03', 'A+L04', 'A+L05', 'A+L06', 'A+L07']
       : prefix === 'A+P'
-        ? ['A+P01', 'A+P02', 'A+P03', 'A+P04', 'A+P05', 'A+P06']
-        : ['A+M01', 'A+M02', 'A+M03', 'A+M04', 'A+M05']
+        ? ['A+P01', 'A+P02', 'A+P03', 'A+P04', 'A+P05', 'A+P06', 'A+P07']
+        : ['A+M01', 'A+M02', 'A+M03', 'A+M04', 'A+M05', 'A+M06', 'A+M07']
 
   return slots.map((slot, index) => ({
     slot,
     label: `${slot} 模块`,
     moduleType: prefix === 'A+S'
-      ? index === 0 ? 'header-banner' : index < 4 ? 'single-image' : 'highlight-tile'
+      ? index === 0 ? 'header-banner' : 'single-image'
       : prefix === 'A+L'
         ? index === 0 ? 'header-banner' : 'single-image'
         : prefix === 'A+P'
-          ? index === 0 ? 'hero-banner' : index < 4 ? 'feature-image' : 'brand-story'
+          ? index === 0 ? 'hero-banner' : 'feature-image'
           : index === 0 ? 'hero-banner' : 'feature-image',
     planMarkdown: `## ${slot} 模块方案\n\n中文 A+ 策划说明。`,
-    textTitle: prefix === 'A+S' && index >= 4 ? `Benefit ${slot}` : '',
-    textBody: prefix === 'A+S' && index >= 4 ? `External A+ copy for ${slot}.` : '',
+    textTitle: '',
+    textBody: '',
     prompt: brand && index === 0
       ? `Create A+ module ${slot} for ${brand}, using the brand name as a small headline line.`
       : `Create A+ module ${slot} for the product.`,
@@ -880,9 +897,8 @@ describe('callAmazonPlannerApi', () => {
     expect(body.instructions).toContain('Amazon A+ reference material for the planner')
     expect(body.instructions).toContain('Use product reference images only to identify product facts')
     expect(body.instructions).toContain('must avoid fixed non-product aesthetics')
-    expect(body.instructions).toContain('Header Banner 970x300')
+    expect(body.instructions).toContain('Header Banner 970x600')
     expect(body.instructions).toContain('Single Image 970x600')
-    expect(body.instructions).toContain('Highlight Tile 220x220')
     expect(body.instructions).toContain('Comparison Thumbnail 150x300')
     expect(body.instructions).toContain('QR codes')
     expect(body.instructions).toContain('mobile-readable')
@@ -898,20 +914,18 @@ describe('callAmazonPlannerApi', () => {
     expect(body.instructions).not.toContain('A+ compliance:')
     expect(result.mode).toBe('aplus')
     expect(result.parsed.inferred.brand).toBe('ExampleBrand')
-    expect(result.aPlusPlans).toHaveLength(8)
+    expect(result.aPlusPlans).toHaveLength(7)
     expect(result.aPlusPlans[0]).toMatchObject({
       slot: 'A+S01',
       moduleType: 'header-banner',
-      uploadSize: '970x300',
+      uploadSize: '970x600',
       planMarkdown: expect.stringContaining('A+S01 模块方案'),
       prompt: expect.stringContaining('ExampleBrand'),
     })
     expect(result.aPlusPlans[4]).toMatchObject({
       slot: 'A+S05',
-      moduleType: 'highlight-tile',
-      uploadSize: '220x220',
-      textTitle: 'Benefit A+S05',
-      textBody: 'External A+ copy for A+S05.',
+      moduleType: 'single-image',
+      uploadSize: '970x600',
     })
   })
 
@@ -956,7 +970,7 @@ describe('callAmazonPlannerApi', () => {
   })
 
   it('uses custom A+ module specs in schema, prompts, chat guide, and result validation', async () => {
-    const customSpecs = insertAPlusModuleSpecAfter('standard-large', getAPlusModuleSpecs('standard-large'), 4)
+    const customSpecs = insertAPlusModuleSpecAfter('standard', getAPlusModuleSpecs('standard'), 6)
     const customPayload = createAPlusPayloadFromSpecs(customSpecs, 'Custom A+ tumbler', 'ExampleBrand')
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify({
       output_text: JSON.stringify(customPayload),
@@ -976,25 +990,25 @@ describe('callAmazonPlannerApi', () => {
         model: 'gpt-planner-profile',
       }),
       mode: 'aplus',
-      aPlusType: 'standard-large',
+      aPlusType: 'standard',
       aPlusModuleSpecs: customSpecs,
       aPlusGenerationTier: '2K',
     })
 
     const responseBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
-    expect(responseBody.text.format.schema.properties.aPlusPlans.minItems).toBe(6)
-    expect(responseBody.text.format.schema.properties.aPlusPlans.maxItems).toBe(6)
-    expect(responseBody.text.format.schema.properties.aPlusPlans.items.properties.slot.enum).toEqual(['A+L01', 'A+L02', 'A+L03', 'A+L04', 'A+L05', 'A+L06'])
-    expect(responseBody.instructions).toContain('Return exactly 6 modules')
-    expect(responseBody.instructions).toContain('A+L06 Single Image 5 970x600px')
-    expect(responseBody.input[0].content[0].text).toContain('Use these A+ modules exactly: A+L01, A+L02, A+L03, A+L04, A+L05, A+L06.')
-    expect(responseResult.aPlusPlans).toHaveLength(6)
-    expect(responseResult.aPlusPlans[5]).toMatchObject({
-      slot: 'A+L06',
-      label: 'Single Image 5',
+    expect(responseBody.text.format.schema.properties.aPlusPlans.minItems).toBe(8)
+    expect(responseBody.text.format.schema.properties.aPlusPlans.maxItems).toBe(8)
+    expect(responseBody.text.format.schema.properties.aPlusPlans.items.properties.slot.enum).toEqual(['A+S01', 'A+S02', 'A+S03', 'A+S04', 'A+S05', 'A+S06', 'A+S07', 'A+S08'])
+    expect(responseBody.instructions).toContain('Return exactly 8 modules')
+    expect(responseBody.instructions).toContain('A+S08 Single Image 7 970x600px')
+    expect(responseBody.input[0].content[0].text).toContain('Use these A+ modules exactly: A+S01, A+S02, A+S03, A+S04, A+S05, A+S06, A+S07, A+S08.')
+    expect(responseResult.aPlusPlans).toHaveLength(8)
+    expect(responseResult.aPlusPlans[7]).toMatchObject({
+      slot: 'A+S08',
+      label: 'Single Image 7',
       moduleType: 'single-image',
       uploadSize: '970x600',
-      planMarkdown: expect.stringContaining('A+L06 模块方案'),
+      planMarkdown: expect.stringContaining('A+S08 模块方案'),
     })
 
     fetchMock.mockClear()
@@ -1008,16 +1022,16 @@ describe('callAmazonPlannerApi', () => {
         model: 'gpt-planner-profile',
       }),
       mode: 'aplus',
-      aPlusType: 'standard-large',
+      aPlusType: 'standard',
       aPlusModuleSpecs: customSpecs,
       aPlusGenerationTier: '2K',
     })
 
     const chatBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
-    expect(chatBody.messages[0].content).toContain('Return exactly 6 modules')
-    expect(chatBody.messages[0].content).toContain('aPlusPlans must contain exactly 6 items in this order: A+L01, A+L02, A+L03, A+L04, A+L05, A+L06.')
-    expect(chatBody.messages[1].content).toContain('Use these A+ modules exactly: A+L01, A+L02, A+L03, A+L04, A+L05, A+L06.')
-    expect(chatResult.aPlusPlans).toHaveLength(6)
+    expect(chatBody.messages[0].content).toContain('Return exactly 8 modules')
+    expect(chatBody.messages[0].content).toContain('aPlusPlans must contain exactly 8 items in this order: A+S01, A+S02, A+S03, A+S04, A+S05, A+S06, A+S07, A+S08.')
+    expect(chatBody.messages[1].content).toContain('Use these A+ modules exactly: A+S01, A+S02, A+S03, A+S04, A+S05, A+S06, A+S07, A+S08.')
+    expect(chatResult.aPlusPlans).toHaveLength(8)
   })
 
   it('parses Mobile A+ output as five fixed 600x450 modules', async () => {
@@ -1044,20 +1058,19 @@ describe('callAmazonPlannerApi', () => {
     })
 
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
-    expect(body.text.format.schema.properties.aPlusPlans.minItems).toBe(5)
-    expect(body.text.format.schema.properties.aPlusPlans.maxItems).toBe(5)
-    expect(body.text.format.schema.properties.aPlusPlans.items.properties.slot.enum).toEqual(['A+M01', 'A+M02', 'A+M03', 'A+M04', 'A+M05'])
+    expect(body.text.format.schema.properties.aPlusPlans.minItems).toBe(7)
+    expect(body.text.format.schema.properties.aPlusPlans.maxItems).toBe(7)
+    expect(body.text.format.schema.properties.aPlusPlans.items.properties.slot.enum).toEqual(['A+M01', 'A+M02', 'A+M03', 'A+M04', 'A+M05', 'A+M06', 'A+M07'])
     expect(body.text.format.schema.properties.aPlusPlans.items.properties.moduleType.enum).toEqual(['hero-banner', 'feature-image'])
     expect(body.instructions).toContain('Mobile A+ Content 600x450 module set')
     expect(body.instructions).toContain('A+M01 Mobile Hero 600x450px')
-    expect(body.instructions).toContain('A+M05 Mobile Feature 4 600x450px')
-    expect(body.instructions).toContain('five compact 600x450 modules')
+    expect(body.instructions).toContain('A+M07 Mobile Feature 6 600x450px')
     expect(body.instructions).toContain('compact mobile screens')
     expect(body.input[0].content[0].text).toContain('手机A+ module plan')
-    expect(body.input[0].content[0].text).toContain('Use these A+ modules exactly: A+M01, A+M02, A+M03, A+M04, A+M05.')
+    expect(body.input[0].content[0].text).toContain('Use these A+ modules exactly: A+M01, A+M02, A+M03, A+M04, A+M05, A+M06, A+M07.')
     expect(result.mode).toBe('aplus')
     expect(result.aPlusType).toBe('mobile')
-    expect(result.aPlusPlans).toHaveLength(5)
+    expect(result.aPlusPlans).toHaveLength(7)
     expect(result.aPlusPlans[0]).toMatchObject({
       slot: 'A+M01',
       moduleType: 'hero-banner',
@@ -1065,12 +1078,12 @@ describe('callAmazonPlannerApi', () => {
       planMarkdown: expect.stringContaining('A+M01 模块方案'),
       prompt: expect.stringContaining('ExampleBrand'),
     })
-    expect(result.aPlusPlans[4]).toMatchObject({
-      slot: 'A+M05',
+    expect(result.aPlusPlans[6]).toMatchObject({
+      slot: 'A+M07',
       moduleType: 'feature-image',
       uploadSize: '600x450',
     })
-    expect(result.aPlusPlans[0]?.generationSize).not.toBe('600x450')
+    expect(result.aPlusPlans[0]?.generationSize).toBe('600x450')
   })
 
   it('does not include empty A+ brand output in parsed inferred fields', async () => {

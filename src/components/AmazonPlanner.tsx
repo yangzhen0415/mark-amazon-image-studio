@@ -488,7 +488,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
   const [listingImageCount, setListingImageCount] = useState(DEFAULT_LISTING_IMAGE_COUNT)
   const [plannerMode, setPlannerMode] = useState<AmazonPlannerMode>('listing')
   const [marketplaceId, setMarketplaceId] = useState<AmazonMarketplaceId>(DEFAULT_AMAZON_MARKETPLACE_ID)
-  const [aPlusType, setAPlusType] = useState<APlusContentType>('standard-large')
+  const [aPlusType, setAPlusType] = useState<APlusContentType>('standard')
   const [aPlusModuleSpecsByType, setAPlusModuleSpecsByType] = useState<APlusModuleSpecsByType>({})
   const [listingText, setListingText] = useState('')
   const [listingCopyMarkdown, setListingCopyMarkdown] = useState('')
@@ -538,6 +538,14 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
   )
   const aPlusDefaultSpecs = useMemo(() => getAPlusModuleSpecs(activeAPlusType), [activeAPlusType])
   const aPlusSpecsAreDefault = areAPlusModuleSpecsEquivalent(aPlusSpecs, aPlusDefaultSpecs)
+  const activeAPlusTypeLabel = getAPlusContentTypeLabel(activeAPlusType)
+  const activeAPlusSizeSummary = activeAPlusType === 'mobile'
+    ? '600x450px'
+    : activeAPlusType === 'premium'
+      ? '1464x600px'
+      : activeAPlusType === 'standard' || activeAPlusType === 'standard-large'
+        ? '970x600px'
+        : '按A+模块尺寸'
   const aPlusPlansWithSizes = useMemo(() => withAPlusGenerationSizes(aPlusPlans, resolutionTier), [aPlusPlans, resolutionTier])
   const selectedPlan = selectedPlanIndex == null ? null : imagePlans[selectedPlanIndex] ?? null
   const selectedAPlusPlan = selectedAPlusPlanIndex == null ? null : aPlusPlansWithSizes[selectedAPlusPlanIndex] ?? null
@@ -774,10 +782,10 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
 
         setPlannerMode(snapshot.plannerMode === 'aplus' ? 'aplus' : 'listing')
         setMarketplaceId(normalizeAmazonMarketplaceId(snapshot.marketplaceId))
-        setAPlusType(A_PLUS_CONTENT_TYPES.includes(snapshot.aPlusType as APlusContentType) ? snapshot.aPlusType as APlusContentType : 'standard-large')
+        setAPlusType(snapshot.aPlusType === 'standard-large' ? 'standard' : A_PLUS_CONTENT_TYPES.includes(snapshot.aPlusType as APlusContentType) ? snapshot.aPlusType as APlusContentType : 'standard')
         setResolution(snapshot.resolution === '4k' || snapshot.resolution === '2k' ? snapshot.resolution : '1k')
         setListingImageCount(normalizeListingImageCount(snapshot.listingImageCount))
-        setAPlusModuleSpecsByType(snapshot.aPlusModuleSpecsByType ?? {})
+        setAPlusModuleSpecsByType({})
         setListingText(typeof snapshot.listingText === 'string' ? snapshot.listingText : '')
         setListingCopyMarkdown(typeof snapshot.listingCopyMarkdown === 'string' ? snapshot.listingCopyMarkdown : '')
         setInputImages(restoredImages.filter((image): image is { id: string; dataUrl: string } => Boolean(image)))
@@ -787,9 +795,9 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
         setDraft(snapshot.draft ? fromSessionDraft(snapshot.draft) : DEFAULT_AMAZON_PROMPT_DRAFT)
         setSeriesStyleGuides(snapshot.seriesStyleGuides ?? { listing: '', aplus: '' })
         setImagePlans(Array.isArray(snapshot.imagePlans) ? snapshot.imagePlans as AmazonImagePlan[] : [])
-        setAPlusPlans(Array.isArray(snapshot.aPlusPlans) ? snapshot.aPlusPlans as AmazonAPlusPlan[] : [])
+        setAPlusPlans([])
         setSelectedPlanIndex(typeof snapshot.selectedPlanIndex === 'number' ? snapshot.selectedPlanIndex : null)
-        setSelectedAPlusPlanIndex(typeof snapshot.selectedAPlusPlanIndex === 'number' ? snapshot.selectedAPlusPlanIndex : null)
+        setSelectedAPlusPlanIndex(null)
         setSelectedStylePresetId(snapshot.selectedStylePresetId ?? DEFAULT_STYLE_PRESET_ID)
         setStyleDensityMode(snapshot.styleDensityMode === 'minimal' ? 'minimal' : 'rich')
         setCurrentPlannerSessionId(typeof snapshot.currentPlannerSessionId === 'string' ? snapshot.currentPlannerSessionId : null)
@@ -1591,7 +1599,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
     const nextPlannerMode = plannerMode
     const nextAPlusType: APlusContentType = nextMarketplaceId === 'ozon'
       ? 'ozon-detail'
-      : aPlusType === 'ozon-detail' ? 'standard-large' : aPlusType
+      : 'standard'
     setMarketplaceId(nextMarketplaceId)
     setPlannerMode(nextPlannerMode)
     setAPlusType(nextAPlusType)
@@ -2164,7 +2172,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                   {plannerMode === 'aplus'
                     ? isOzonMarketplace
                       ? `面向${marketplace.label}，默认生成 7 张 750x1000 详情图、英文生图提示词和${marketplace.copyLanguage}图片文案。`
-                      : `面向${marketplace.label}，生成普通A+ / 标准A+ / 高级A+ / 手机A+模块编排、英文生图提示词和${marketplace.copyLanguage}文案。`
+                      : `面向${marketplace.label}，默认生成 7 张${activeAPlusTypeLabel}，尺寸 ${activeAPlusSizeSummary}，含英文生图提示词和${marketplace.copyLanguage}文案。`
                     : `面向${marketplace.label}，生成 ${listingSlotRange} 的逐张方案、英文生图提示词和${marketplace.copyLanguage}图片文案。`}
                 </div>
               </div>
@@ -2178,18 +2186,20 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
               </div>
             )}
             {plannerMode === 'aplus' && !isOzonMarketplace && (
-              <div className="ios-segmented mt-3">
-                {AMAZON_A_PLUS_CONTENT_TYPES.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => changeAPlusType(type)}
-                    data-active={aPlusType === type}
-                    className={`ios-segment h-8 px-3 text-sm font-medium ${aPlusType === type ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
-                  >
-                    {getAPlusContentTypeLabel(type)}
-                  </button>
-                ))}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="ios-segmented">
+                  {AMAZON_A_PLUS_CONTENT_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => changeAPlusType(type)}
+                      data-active={aPlusType === type}
+                      className={`ios-segment h-8 px-3 text-sm font-medium ${aPlusType === type ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                    >
+                      {getAPlusContentTypeLabel(type)}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             <label className={`mt-3 block rounded-xl transition ${getGuideFocusClass(guideState.target === 'planner-input')}`}>
@@ -3008,7 +3018,7 @@ export default function AmazonPlanner({ onOpenWorkbench }: AmazonPlannerProps) {
                   <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {isOzonMarketplace
                       ? '默认 7 张详情图，全部按 750x1000 竖图策划。'
-                      : `当前选择 ${getAPlusContentTypeLabel(aPlusType)}，可先调整模块数量，再点击 AI策划A+。`}
+                      : `${activeAPlusTypeLabel}默认 ${aPlusDefaultSpecs.length} 张，尺寸 ${activeAPlusSizeSummary}；可先调整数量，再点击 AI策划A+。`}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
